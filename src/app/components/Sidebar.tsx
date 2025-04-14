@@ -14,15 +14,15 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-100 bg-gradient-to-b from-pink-300 to-blue-500 text-white flex flex-col items-center py-6 rounded-r-3xl shadow-lg">
-      <h1 className="text-4xl font-bold mb-10">M-CLAUD</h1>
+    <aside className="w-60 bg-gradient-to-b from-pink-300 to-blue-500 text-white flex flex-col items-center py-6 rounded-r-3xl shadow-lg">
+      <h1 className="text-2xl font-bold mb-10">M-CLAUD</h1>
 
       <div className="flex flex-col items-center mb-10">
         <p className="mt-2 text-sm font-medium">Hong Gil Dong</p>
         <p className="text-xs text-white/80">/ Security Admin</p>
       </div>
 
-      <nav className="flex flex-col gap-4 w-full px-6 text-xl">
+      <nav className="flex flex-col gap-4 w-full px-6 text-s">
         {navItems.map(({ label, href }) => (
           <Link
             key={href}
