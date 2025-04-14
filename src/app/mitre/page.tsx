@@ -1,139 +1,149 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
 
-// dagre 레이아웃 등록
 cytoscape.use(dagre);
 
 export default function MitrePage() {
   const cyRef = useRef<HTMLDivElement>(null);
   const [cy, setCy] = useState<cytoscape.Core | null>(null);
 
-  const forkSiblings = [
-    "Discovery",
-    "Persistence",
-    "Privilege Escalation",
-    "Defense Evasion",
-  ];
+  const forkSiblings = useMemo(
+    () => [
+      "Discovery",
+      "Persistence",
+      "Privilege Escalation",
+      "Defense Evasion",
+    ],
+    []
+  );
 
-  const detectedPath = [
-    "Initial Access",
-    "Execution",
-    "Discovery",
-    "Lateral Movement",
-  ];
+  const detectedPath = useMemo(
+    () => ["Initial Access", "Execution", "Discovery", "Lateral Movement"],
+    []
+  );
 
-  const nodes = [
-    {
-      data: {
-        id: "Initial Access",
-        status: "off",
-        tactic: "Initial Access",
-        technique: "T1078 - Valid Accounts",
-        route: "Default Account",
-        detectTime: "2025-04-04 12:59 (UTC)",
-        capec: "CAPEC-521",
+  const nodes = useMemo(
+    () => [
+      {
+        data: {
+          id: "Initial Access",
+          status: "off",
+          tactic: "Initial Access",
+          technique: "T1078 - Valid Accounts",
+          route: "Default Account",
+          detectTime: "2025-04-04 12:59 (UTC)",
+          capec: "CAPEC-521",
+        },
       },
-    },
-    {
-      data: {
-        id: "Execution",
-        status: "off",
-        tactic: "Execution",
-        technique: "T1059 - Command and Scripting Interpreter",
-        tool: "PowerShell",
-        detectTime: "2025-04-04 13:25 (UTC)",
-        capec: "CAPEC-242",
+      {
+        data: {
+          id: "Execution",
+          status: "off",
+          tactic: "Execution",
+          technique: "T1059 - Command and Scripting Interpreter",
+          tool: "PowerShell",
+          detectTime: "2025-04-04 13:25 (UTC)",
+          capec: "CAPEC-242",
+        },
       },
-    },
-    {
-      data: {
-        id: "Discovery",
-        status: "off",
-        tactic: "Discovery",
-        technique: "T1201 - Password Policy Discovery",
-        detectTime: "2025-04-04 13:32 (UTC)",
-        capec: "CAPEC-640",
+      {
+        data: {
+          id: "Discovery",
+          status: "off",
+          tactic: "Discovery",
+          technique: "T1201 - Password Policy Discovery",
+          detectTime: "2025-04-04 13:32 (UTC)",
+          capec: "CAPEC-640",
+        },
       },
-    },
-    { data: { id: "Persistence", status: "off" } },
-    { data: { id: "Lateral Movement", status: "off" } },
-    { data: { id: "Privilege Escalation", status: "off" } },
-    { data: { id: "Defense Evasion", status: "off" } },
-    { data: { id: "Credential Access", status: "off" } },
-    { data: { id: "Collection", status: "off" } },
-    { data: { id: "Impact", status: "off" } },
-  ];
+      { data: { id: "Persistence", status: "off" } },
+      { data: { id: "Lateral Movement", status: "off" } },
+      { data: { id: "Privilege Escalation", status: "off" } },
+      { data: { id: "Defense Evasion", status: "off" } },
+      { data: { id: "Credential Access", status: "off" } },
+      { data: { id: "Collection", status: "off" } },
+      { data: { id: "Impact", status: "off" } },
+    ],
+    []
+  );
 
-  const edges = [
-    { data: { source: "Initial Access", target: "Execution" } },
-    { data: { source: "Execution", target: "Discovery" } },
-    { data: { source: "Execution", target: "Persistence" } },
-    { data: { source: "Execution", target: "Privilege Escalation" } },
-    { data: { source: "Execution", target: "Defense Evasion" } },
-    { data: { source: "Discovery", target: "Lateral Movement" } },
-    { data: { source: "Lateral Movement", target: "Collection" } },
-    { data: { source: "Privilege Escalation", target: "Impact" } },
-    { data: { source: "Defense Evasion", target: "Privilege Escalation" } },
-    { data: { source: "Persistence", target: "Credential Access" } },
-  ];
+  const edges = useMemo(
+    () => [
+      { data: { source: "Initial Access", target: "Execution" } },
+      { data: { source: "Execution", target: "Discovery" } },
+      { data: { source: "Execution", target: "Persistence" } },
+      { data: { source: "Execution", target: "Privilege Escalation" } },
+      { data: { source: "Execution", target: "Defense Evasion" } },
+      { data: { source: "Discovery", target: "Lateral Movement" } },
+      { data: { source: "Lateral Movement", target: "Collection" } },
+      { data: { source: "Privilege Escalation", target: "Impact" } },
+      { data: { source: "Defense Evasion", target: "Privilege Escalation" } },
+      { data: { source: "Persistence", target: "Credential Access" } },
+    ],
+    []
+  );
 
-  const styles = [
-    {
-      selector: "node",
-      style: {
-        label: "data(id)",
-        width: 160,
-        height: 60,
-        shape: "roundrectangle",
-        "text-valign": "center",
-        "text-halign": "center",
-        "font-size": 14,
-        "background-color": "#ddd",
-        color: "#333",
-        "text-wrap": "wrap",
-        "text-max-width": "140px",
+  const styles = useMemo(
+    () => [
+      {
+        selector: "node",
+        style: {
+          label: "data(id)",
+          width: 160,
+          height: 60,
+          shape: "roundrectangle",
+          "text-valign": "center",
+          "text-halign": "center",
+          "font-size": 14,
+          "background-color": "#ddd",
+          color: "#333",
+          "text-wrap": "wrap",
+          "text-max-width": "140px",
+        },
       },
-    },
-    {
-      selector: 'node[status = "on"]',
-      style: {
-        "background-color": "#c8102e",
-        color: "#fff",
-        "font-weight": "bold",
+      {
+        selector: 'node[status = "on"]',
+        style: {
+          "background-color": "#c8102e",
+          color: "#fff",
+          "font-weight": "bold",
+        },
       },
-    },
-    {
-      selector: "edge",
-      style: {
-        width: 2,
-        "line-color": "#999",
-        "target-arrow-shape": "triangle",
-        "target-arrow-color": "#999",
-        "curve-style": "straight", // ✅ 직선
+      {
+        selector: "edge",
+        style: {
+          width: 2,
+          "line-color": "#999",
+          "target-arrow-shape": "triangle",
+          "target-arrow-color": "#999",
+          "curve-style": "straight",
+        },
       },
-    },
-  ];
+    ],
+    []
+  );
 
   useEffect(() => {
     if (cyRef.current && !cy) {
+      const tooltip = document.getElementById("tooltip");
+
       const cyInstance = cytoscape({
         container: cyRef.current,
         elements: { nodes, edges },
         layout: {
           name: "dagre",
-          // @ts-expect-error: rankDir is valid for dagre
+          // @ts-expect-error: dagre layout에서 rankDir은 정상 속성
           rankDir: "LR",
           rankSep: 100,
           nodeSep: 100,
           spacingFactor: 1.2,
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         style: styles as any,
       });
-
-      const tooltip = document.getElementById("tooltip");
 
       cyInstance.on("mouseover", "node", (event) => {
         const node = event.target;
@@ -164,7 +174,7 @@ export default function MitrePage() {
 
       setCy(cyInstance);
     }
-  }, [cy]);
+  }, [cy, nodes, edges, styles]);
 
   const handleStart = () => {
     if (!cy) return;
@@ -214,7 +224,6 @@ export default function MitrePage() {
           border: "1px solid #ddd",
         }}
       />
-      {/* 툴팁 HTML */}
       <div
         id="tooltip"
         className="hidden"
