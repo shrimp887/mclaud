@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
+import { CytoscapeStyle } from "@/types/cytoscape-style";
 
 cytoscape.use(dagre);
 
@@ -80,7 +81,7 @@ export default function MitrePage() {
     []
   );
 
-  const styles = useMemo(
+  const styles: CytoscapeStyle[] = useMemo(
     () => [
       {
         selector: "node",
@@ -134,12 +135,13 @@ export default function MitrePage() {
         elements: { nodes, edges },
         layout: {
           name: "dagre",
+          // @ts-expect-error: rankDir is used by cytoscape-dagre plugin
           rankDir: "LR",
           rankSep: 100,
           nodeSep: 100,
           spacingFactor: 1.2,
-        } as any,
-        style: styles as any,
+        },
+        style: styles,
         userZoomingEnabled: false,
         userPanningEnabled: false,
         boxSelectionEnabled: false,
