@@ -6,8 +6,51 @@ import dagre from "cytoscape-dagre";
 
 cytoscape.use(dagre);
 
+const attacks = [
+  "Initial Access",
+  "Execution",
+  "Persistence",
+  "Privilege Escalation",
+  "Defense Evasion",
+  "Credential Access",
+  "Discovery",
+  "Lateral Movement",
+  "Collection",
+  "Exfiltration",
+  "Impact",
+];
+const timeLabels = Array.from({ length: 10 }, (_, i) => {
+  const date = new Date();
+  date.setDate(date.getDate() - (9 - i)); // 과거부터 현재까지 10일
+  return date.toISOString().split("T")[0]; // 'YYYY-MM-DD'
+});
+
+
+const severityColor = {
+  Usual: "#4FC3F7",
+  Low: "#FFEB3B",
+  Medium: "#FF9800",
+  High: "#F44336",
+};
+
+const fakeData = Array.from({ length: 10 }, (_, i) =>
+  attacks.flatMap((attack, idx) => {
+    const shouldInclude = Math.random() > 0.6;
+    if (!shouldInclude) return [];
+    return {
+      service: attack,
+      time: i,
+      severity: Object.keys(severityColor)[Math.floor(Math.random() * 4)],
+      size: Math.random() * 20 + 10,
+      y: idx * 60 + 30,
+      x: 800 + i * 100,
+    };
+  })
+).flat();
+
 export default function MitrePage() {
   const cyRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const [cy, setCy] = useState<cytoscape.Core | null>(null);
 
   const forkSiblings = useMemo(
@@ -127,24 +170,34 @@ export default function MitrePage() {
   );
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const circles = svg.querySelectorAll("circle");
+      circles.forEach((circle: SVGCircleElement) => {
+        const cx = parseFloat(circle.getAttribute("cx") || "0");
+        const newCx = cx - 2;
+        circle.setAttribute("cx", newCx.toString());
+      });
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (cyRef.current && !cy) {
       const tooltip = document.getElementById("tooltip");
-
       const cyInstance = cytoscape({
         container: cyRef.current,
         elements: { nodes, edges },
         layout: {
           name: "dagre",
-          // @ts-expect-error: dagre layout에서 rankDir은 정상 속성
           rankDir: "LR",
           rankSep: 100,
           nodeSep: 100,
           spacingFactor: 1.2,
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         style: styles as any,
       });
-
       cyInstance.on("mouseover", "node", (event) => {
         const node = event.target;
         const data = node.data();
@@ -160,52 +213,18 @@ export default function MitrePage() {
           tooltip.classList.remove("hidden");
         }
       });
-
       cyInstance.on("mouseout", "node", () => {
         if (tooltip) tooltip.classList.add("hidden");
       });
-
       cyInstance.on("mousemove", (e) => {
         if (tooltip) {
           tooltip.style.left = e.originalEvent.pageX + 10 + "px";
           tooltip.style.top = e.originalEvent.pageY + 10 + "px";
         }
       });
-
       setCy(cyInstance);
     }
   }, [cy, nodes, edges, styles]);
-
-  const handleStart = () => {
-    if (!cy) return;
-
-    let delay = 0;
-
-    for (let i = 0; i < detectedPath.length; i++) {
-      const id = detectedPath[i];
-
-      setTimeout(() => {
-        const node = cy.getElementById(id);
-        if (node) node.data("status", "on");
-
-        if (i > 1 && forkSiblings.includes(id)) {
-          forkSiblings.forEach((sibling) => {
-            if (sibling !== id) {
-              const n = cy.getElementById(sibling);
-              if (n) {
-                const descendants = n.successors();
-                cy.remove(descendants);
-                cy.remove(n.connectedEdges());
-                cy.remove(n);
-              }
-            }
-          });
-        }
-      }, delay);
-
-      delay += 1000;
-    }
-  };
 
   return (
     <div className="p-6 relative">
@@ -216,14 +235,89 @@ export default function MitrePage() {
       >
         시작
       </button>
+  
       <div
         ref={cyRef}
         style={{
           width: "100%",
           height: "700px",
           border: "1px solid #ddd",
+          marginBottom: "30px",
         }}
       />
+  
+      <svg ref={svgRef} width="100%" height={attacks.length * 60 + 40}>
+        {/* ✅ clipPath 정의 */}
+        <defs>
+          <clipPath id="clip-both-boundary">
+            <rect x="200" y="0" width="calc(100% - 200px)" height="100%" />
+          </clipPath>
+        </defs>
+  
+        {/* 줄무늬 배경 추가 */}
+        <g>
+          {attacks.map((_, i) => (
+            <rect
+              key={`bg-${i}`}
+              x="0"
+              y={i * 60}
+              width="100%"
+              height="60"
+              fill={i % 2 === 0 ? "#f9f9f9" : "#ffffff"}
+            />
+          ))}
+        </g>
+
+        {/* 세로 구분선 */}
+        <line
+          x1={200}
+          y1={0}
+          x2={200}
+          y2={attacks.length * 60}
+          stroke="#ccc"
+          strokeWidth="1"
+        />
+        
+        {/* 세로축 이름 */}
+        {attacks.map((name, i) => (
+          <text key={name} x="10" y={i * 60 + 35} fontSize="14">
+            {name}
+          </text>
+        ))}
+
+        {/* 가로축 날짜 */}
+        <g>
+          {timeLabels.map((label, i) => (
+            <text
+              key={i}
+              x={800 + i * 100}
+              y={attacks.length * 60 + 20}
+              fontSize="12"
+              textAnchor="middle"
+              fill="#666"
+            >
+              {label}
+            </text>
+          ))}
+        </g>
+  
+        {/* ✅ 3. 데이터 원 그래프 */}
+        <g clipPath="url(#clip-both-boundary)">
+          {fakeData.map((dot, i) => (
+            <circle
+              key={i}
+              cx={dot.x}
+              cy={dot.y}
+              r={dot.size / 2}
+              fill={severityColor[dot.severity as keyof typeof severityColor]}
+              stroke="#333"
+              strokeWidth="0.5"
+              style={{ transition: "all 0.3s linear" }}
+            />
+          ))}
+        </g>
+      </svg>
+  
       <div
         id="tooltip"
         className="hidden"
@@ -242,4 +336,31 @@ export default function MitrePage() {
       />
     </div>
   );
+  
+
+  function handleStart() {
+    if (!cy) return;
+    let delay = 0;
+    for (let i = 0; i < detectedPath.length; i++) {
+      const id = detectedPath[i];
+      setTimeout(() => {
+        const node = cy.getElementById(id);
+        if (node) node.data("status", "on");
+        if (i > 1 && forkSiblings.includes(id)) {
+          forkSiblings.forEach((sibling) => {
+            if (sibling !== id) {
+              const n = cy.getElementById(sibling);
+              if (n) {
+                const descendants = n.successors();
+                cy.remove(descendants);
+                cy.remove(n.connectedEdges());
+                cy.remove(n);
+              }
+            }
+          });
+        }
+      }, delay);
+      delay += 1000;
+    }
+  }
 }
