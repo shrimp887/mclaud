@@ -6,6 +6,7 @@ import dagre from "cytoscape-dagre";
 
 cytoscape.use(dagre);
 
+/* Y축 데이터 */
 const attacks = [
   "Initial Access",
   "Execution",
@@ -19,11 +20,16 @@ const attacks = [
   "Exfiltration",
   "Impact",
 ];
+/* X축 데이터 */
+const baseTime = new Date("2025-04-15T20:15:20");
 const timeLabels = Array.from({ length: 10 }, (_, i) => {
-  const date = new Date();
-  date.setDate(date.getDate() - (9 - i)); // 과거부터 현재까지 10일
-  return date.toISOString().split("T")[0]; // 'YYYY-MM-DD'
+  const t = new Date(baseTime.getTime() + i * 2000); // 5초 간격
+  const hh = String(t.getHours()).padStart(2, "0");
+  const mm = String(t.getMinutes()).padStart(2, "0");
+  const ss = String(t.getSeconds()).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;  // "20:15:20" 형식으로 출력
 });
+
 
 
 const severityColor = {
@@ -33,9 +39,10 @@ const severityColor = {
   High: "#F44336",
 };
 
+/* 원 값들 랜덤 생성 */
 const fakeData = Array.from({ length: 10 }, (_, i) =>
   attacks.flatMap((attack, idx) => {
-    const shouldInclude = Math.random() > 0.6;
+    const shouldInclude = Math.random() > 0.7;
     if (!shouldInclude) return [];
     return {
       service: attack,
@@ -47,6 +54,7 @@ const fakeData = Array.from({ length: 10 }, (_, i) =>
     };
   })
 ).flat();
+
 
 export default function MitrePage() {
   const cyRef = useRef<HTMLDivElement>(null);
@@ -169,19 +177,41 @@ export default function MitrePage() {
     []
   );
 
+  /* 원이랑 시간 왼쪽으로 이동 */
   useEffect(() => {
-    const interval = setInterval(() => {
+    let lastTime = performance.now();
+    const speed = 50; // px per second
+  
+    const animate = (now: number) => {
+      const deltaTime = (now - lastTime) / 1000; // 초 단위
+      lastTime = now;
+  
+      const dx = deltaTime * speed;
       const svg = svgRef.current;
       if (!svg) return;
+  
+      // Move circles
       const circles = svg.querySelectorAll("circle");
-      circles.forEach((circle: SVGCircleElement) => {
+      circles.forEach((circle) => {
         const cx = parseFloat(circle.getAttribute("cx") || "0");
-        const newCx = cx - 2;
-        circle.setAttribute("cx", newCx.toString());
+        circle.setAttribute("cx", (cx - dx).toString());
       });
-    }, 100);
-    return () => clearInterval(interval);
+  
+      // Move x-axis time labels
+      const texts = svg.querySelectorAll("text[data-type='time']");
+      texts.forEach((text) => {
+        const t = text as SVGTextElement;
+        const x = parseFloat(t.getAttribute("x") || "0");
+        t.setAttribute("x", (x - dx).toString());
+      });
+  
+      requestAnimationFrame(animate);
+    };
+  
+    const frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
   }, []);
+  
 
   useEffect(() => {
     if (cyRef.current && !cy) {
@@ -195,7 +225,7 @@ export default function MitrePage() {
           rankSep: 100,
           nodeSep: 100,
           spacingFactor: 1.2,
-        },
+        }as any,
         style: styles as any,
       });
       cyInstance.on("mouseover", "node", (event) => {
@@ -235,7 +265,7 @@ export default function MitrePage() {
       >
         시작
       </button>
-  
+
       <div
         ref={cyRef}
         style={{
@@ -245,79 +275,99 @@ export default function MitrePage() {
           marginBottom: "30px",
         }}
       />
-  
-      <svg ref={svgRef} width="100%" height={attacks.length * 60 + 40}>
-        {/* ✅ clipPath 정의 */}
-        <defs>
-          <clipPath id="clip-both-boundary">
-            <rect x="200" y="0" width="calc(100% - 200px)" height="100%" />
-          </clipPath>
-        </defs>
-  
-        {/* 줄무늬 배경 추가 */}
-        <g>
-          {attacks.map((_, i) => (
-            <rect
-              key={`bg-${i}`}
-              x="0"
-              y={i * 60}
-              width="100%"
-              height="60"
-              fill={i % 2 === 0 ? "#f9f9f9" : "#ffffff"}
-            />
-          ))}
-        </g>
+      <div
+        className="rounded-xl border border-gray-300 shadow-sm p-2 mb-6 bg-white"
+        style={{ overflowX: "auto" }}
+      >
+        <svg ref={svgRef} width="100%" height={attacks.length * 60 + 40}>
+          {/* clipPath 정의 */}
+          <defs>
+            <clipPath id="clip-both-boundary">
+              <rect x="200" y="0" width="calc(100% - 200px)" height="100%" />
+            </clipPath>
+          </defs>
+    
+          {/* 줄무늬 배경 추가 */}
+          <g>
+            {attacks.map((_, i) => (
+              <rect
+                key={`bg-${i}`}
+                x="0"
+                y={i * 60}
+                width="100%"
+                height="60"
+                fill={i % 2 === 0 ? "#f9f9f9" : "#ffffff"}
+              />
+            ))}
+          </g>
 
-        {/* 세로 구분선 */}
-        <line
-          x1={200}
-          y1={0}
-          x2={200}
-          y2={attacks.length * 60}
-          stroke="#ccc"
-          strokeWidth="1"
-        />
-        
-        {/* 세로축 이름 */}
-        {attacks.map((name, i) => (
-          <text key={name} x="10" y={i * 60 + 35} fontSize="14">
-            {name}
-          </text>
-        ))}
-
-        {/* 가로축 날짜 */}
-        <g>
-          {timeLabels.map((label, i) => (
-            <text
-              key={i}
-              x={800 + i * 100}
-              y={attacks.length * 60 + 20}
-              fontSize="12"
-              textAnchor="middle"
-              fill="#666"
-            >
-              {label}
+          {/* 세로 구분선 */}
+          <line
+            x1={200}
+            y1={0}
+            x2={200}
+            y2={attacks.length * 60}
+            stroke="#ccc"
+            strokeWidth="1"
+          />
+          
+          {/* 세로축 이름 */}
+          {attacks.map((name, i) => (
+            <text key={name} x="10" y={i * 60 + 35} fontSize="14">
+              {name}
             </text>
           ))}
-        </g>
-  
-        {/* ✅ 3. 데이터 원 그래프 */}
-        <g clipPath="url(#clip-both-boundary)">
-          {fakeData.map((dot, i) => (
-            <circle
-              key={i}
-              cx={dot.x}
-              cy={dot.y}
-              r={dot.size / 2}
-              fill={severityColor[dot.severity as keyof typeof severityColor]}
-              stroke="#333"
-              strokeWidth="0.5"
-              style={{ transition: "all 0.3s linear" }}
-            />
-          ))}
-        </g>
-      </svg>
-  
+
+          {/* 가로축 날짜 */}
+          <g>
+            {timeLabels.map((label, i) => (
+              <text
+                key={i}
+                data-type="time"
+                x={800 + i * 100}
+                y={attacks.length * 60 + 20}
+                fontSize="12"
+                textAnchor="middle"
+                fill="#666"
+              >
+                {label}
+              </text>
+            ))}
+          </g>
+    
+          {/* clipPath로 감싼 그룹 내부에 circle + text 둘 다 포함 */}
+          <g clipPath="url(#clip-both-boundary)">
+            {fakeData.map((dot, i) => (
+              <circle
+                key={`dot-${i}`}
+                cx={dot.x}
+                cy={dot.y}
+                r={dot.size / 2}
+                fill={severityColor[dot.severity as keyof typeof severityColor]}
+                stroke="#333"
+                strokeWidth="0.5"
+                style={{ transition: "all 0.3s linear" }}
+              />
+            ))}
+
+            {timeLabels.map((label, i) => (
+              <text
+                key={`time-${i}`}
+                data-type="time"
+                x={800 + i * 100}
+                y={attacks.length * 60 + 20}
+                fontSize="12"
+                textAnchor="middle"
+                fill="#666"
+              >
+                {label}
+              </text>
+            ))}
+          </g>
+
+
+        </svg>
+      </div>
       <div
         id="tooltip"
         className="hidden"
