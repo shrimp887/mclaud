@@ -19,14 +19,15 @@ const TACTICS = [
 const ROW_HEIGHT = 60;
 const LABEL_WIDTH = 200;
 const WAVE_SPACING = 4;
+const TOP_PADDING = 40;
 
 // 추가: 파동별 floating box 표시용 정보
 const FLOATING_BOXES = [
-  { label: "Initial Access", frame: 110 },
-  { label: "Execution", frame: 150 },
-  { label: "Discovery", frame: 190 },
-  { label: "Lateral Movement", frame: 230 },
-  { label: "Collection", frame: 270 },
+  { label: "Initial Access", frame: 171 },
+  { label: "Discovery", frame: 211 },
+  { label: "Lateral Movement", frame: 251 },
+  { label: "Collection", frame: 291 },
+  { label: "Execution", frame: 331 },
 ];
 
 /* 파형 생성 부분 */
@@ -36,14 +37,17 @@ const generateWaveData = () => {
 
   // tactic index 기준: row 번호 - 파동 생성
   const waveSpec: Record<number, { start: number; end: number; amp: number }> = {
-    0: { start: 110, end: 130, amp: 10 },   // Initial Access
-    1: { start: 150, end: 170, amp: 10 },   // Execution
-    6: { start: 190, end: 210, amp: 10 },   // Discovery (가장 처음 인식)
-    2: { start: 200, end: 210, amp: 10 },   // Persistence
-    4: { start: 200, end: 210, amp: 10 },   // Defense Evasion
-    7: { start: 230, end: 250, amp: 10 },   // Lateral Movement
-    8: { start: 270, end: 290, amp: 10 },   // Collection
+    0: { start: 224, end: 244, amp: 10 },   // Initial Access
+    1: { start: 264, end: 284, amp: 10 },   // Execution
+    6: { start: 304, end: 324, amp: 10 },   // Discovery (가장 처음 인식)
+    2: { start: 314, end: 324, amp: 10 },   // Persistence
+    4: { start: 314, end: 324, amp: 10 },   // Defense Evasion
+    7: { start: 344, end: 364, amp: 10 },   // Lateral Movement
+    8: { start: 384, end: 404, amp: 10 },   // Collection
   };
+  
+  
+  
 
   for (let row = 0; row < TACTICS.length; row++) {
     const wave: number[] = [];
@@ -86,7 +90,7 @@ export default function TimeSeriesGraph() {
   }, []);
 
   const getPath = (row: number): string => {
-    const yCenter = row * ROW_HEIGHT + 50;
+    const yCenter = row * ROW_HEIGHT + TOP_PADDING + 50;
     const points = waveData.current[row];
     const maxAmp = Math.max(...points.map((v) => Math.abs(v)));
     const scale = (ROW_HEIGHT * 0.5) / (maxAmp || 1);
@@ -101,26 +105,27 @@ export default function TimeSeriesGraph() {
   };
 
   return (
-    <div className="relative bg-white border rounded shadow overflow-hidden">
+    <div className="relative bg-white border rounded shadow overflow-hidden border-gray-300 rounded-xl shadow-md p-4">
       {/* Floating Boxes + TimeLine */}
-      <div className="absolute top-0 left-0 pointer-events-none">
+      <div className="absolute top-0 left-54 w-full h-full overflow-hidden pointer-events-none">
         {FLOATING_BOXES.map((box) => {
-          const left = LABEL_WIDTH + (box.frame - 9) * WAVE_SPACING - offset;
+          const frameX = LABEL_WIDTH + (box.frame - 5) * WAVE_SPACING;
+          const left = frameX - offset;
           return (
             <div key={box.label}>
               {/* 박스 */}
               <div
-                className="absolute px-2 py-1 bg-white text-sm border rounded shadow-sm font-semibold text-gray-800"
-                style={{ top: 4, left }}
+                className="absolute px-2 py-1 bg-white text-xs border rounded shadow-sm font-semibold text-gray-800 whitespace-nowrap"
+                style={{ top: 4, left:left+31}}
               >
                 {box.label}
               </div>
 
-              {/* 타임라인 선 */}
+              {/* 세로선 */}
               <div
                 className="absolute w-px bg-gray-400"
                 style={{
-                  left: left + 32, // 박스 너비만큼 오프셋
+                  left: left + 32,
                   top: 32,
                   height: TACTICS.length * ROW_HEIGHT,
                 }}
@@ -130,10 +135,11 @@ export default function TimeSeriesGraph() {
         })}
       </div>
 
+
       <svg
         ref={svgRef}
         width={3000}
-        height={TACTICS.length * ROW_HEIGHT}
+        height={TACTICS.length * ROW_HEIGHT + TOP_PADDING}
         style={{ background: "white" }}
       >
         {/* 그래프 클리핑 영역 */}
@@ -141,7 +147,7 @@ export default function TimeSeriesGraph() {
           <clipPath id="graph-area">
             <rect
               x={LABEL_WIDTH}
-              y={0}
+              y={TOP_PADDING}
               width={3000}
               height={TACTICS.length * ROW_HEIGHT}
             />
@@ -153,7 +159,7 @@ export default function TimeSeriesGraph() {
             {/* 좌측 라벨 영역 */}
             <foreignObject
               x={0}
-              y={i * ROW_HEIGHT}
+              y={i * ROW_HEIGHT + TOP_PADDING}
               width={LABEL_WIDTH}
               height={ROW_HEIGHT}
             >
@@ -167,9 +173,9 @@ export default function TimeSeriesGraph() {
             {/* 구분선 (행 아래쪽에 그려짐) */}
             <line
               x1={0}
-              y1={(i + 1) * ROW_HEIGHT}
+              y1={(i + 1) * ROW_HEIGHT + TOP_PADDING}
               x2={3000}
-              y2={(i + 1) * ROW_HEIGHT}
+              y2={(i + 1) * ROW_HEIGHT + TOP_PADDING}
               stroke="#ccc"
               strokeWidth={1}
             />
