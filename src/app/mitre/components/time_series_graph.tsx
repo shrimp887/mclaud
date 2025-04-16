@@ -16,25 +16,54 @@ const TACTICS = [
   "Impact",
 ];
 
-const ROW_HEIGHT = 80;
+const ROW_HEIGHT = 60;
 const LABEL_WIDTH = 200;
+const WAVE_SPACING = 4;
+
+// ✅ 추가: 파동별 floating box 표시용 정보
+const FLOATING_BOXES = [
+  { label: "Initial Access", frame: 110 },
+  { label: "Execution", frame: 150 },
+  { label: "Discovery", frame: 190 },
+  { label: "Lateral Movement", frame: 230 },
+  { label: "Collection", frame: 270 },
+];
 
 /* 파형 생성 부분 */
 const generateWaveData = () => {
   const rows: number[][] = [];
+  const totalLength = 500;
+
+  // tactic index 기준: row 번호 - 파동 생성
+  const waveSpec: Record<number, { start: number; end: number; amp: number }> = {
+    0: { start: 110, end: 130, amp: 10 },   // Initial Access
+    1: { start: 150, end: 170, amp: 10 },   // Execution
+    6: { start: 190, end: 210, amp: 10 },   // Discovery (가장 처음 인식)
+    2: { start: 200, end: 210, amp: 10 },   // Persistence
+    4: { start: 200, end: 210, amp: 10 },   // Defense Evasion
+    7: { start: 230, end: 250, amp: 10 },   // Lateral Movement
+    8: { start: 270, end: 290, amp: 10 },   // Collection
+  };
 
   for (let row = 0; row < TACTICS.length; row++) {
     const wave: number[] = [];
-    for (let i = 0; i < 300; i++) {
-      const amp = 10 + Math.random() * 10;
-      const freq = 0.1 + Math.random() * 0.1;
-      wave.push(Math.sin(i * freq + row) * amp);
+    const { start, end, amp } = waveSpec[row] || { start: 0, end: 0, amp: 2 }; // 비감지 row는 약하게 유지
+
+    for (let i = 0; i < totalLength; i++) {
+      if (i >= start && i <= end) {
+        const freq = 0.15 + Math.random() * 0.05;
+        wave.push(Math.abs(Math.sin(i * freq + row) * amp));
+      } else {
+        wave.push(0);
+      }
     }
+
     rows.push(wave);
   }
 
   return rows;
 };
+
 
 export default function TimeSeriesGraph() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -57,7 +86,7 @@ export default function TimeSeriesGraph() {
   }, []);
 
   const getPath = (row: number): string => {
-    const yCenter = row * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const yCenter = row * ROW_HEIGHT + 50;
     const points = waveData.current[row];
     const maxAmp = Math.max(...points.map((v) => Math.abs(v)));
     const scale = (ROW_HEIGHT * 0.5) / (maxAmp || 1);
@@ -73,6 +102,34 @@ export default function TimeSeriesGraph() {
 
   return (
     <div className="relative bg-white border rounded shadow overflow-hidden">
+      {/* Floating Boxes + TimeLine */}
+      <div className="absolute top-0 left-0 pointer-events-none">
+        {FLOATING_BOXES.map((box, i) => {
+          const left = LABEL_WIDTH + (box.frame - 9) * WAVE_SPACING - offset;
+          return (
+            <div key={box.label}>
+              {/* 박스 */}
+              <div
+                className="absolute px-2 py-1 bg-white text-sm border rounded shadow-sm font-semibold text-gray-800"
+                style={{ top: 4, left }}
+              >
+                {box.label}
+              </div>
+
+              {/* 타임라인 선 */}
+              <div
+                className="absolute w-px bg-gray-400"
+                style={{
+                  left: left + 32, // 박스 너비만큼 오프셋
+                  top: 32,
+                  height: TACTICS.length * ROW_HEIGHT,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+
       <svg
         ref={svgRef}
         width={3000}
