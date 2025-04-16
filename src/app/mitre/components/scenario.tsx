@@ -237,7 +237,7 @@ export default function MitrePage() {
         }
       }, delay);
 
-      delay += 1000;
+      delay += 5000;
     }
   };
 
