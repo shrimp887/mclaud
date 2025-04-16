@@ -20,7 +20,7 @@ const ROW_HEIGHT = 60;
 const LABEL_WIDTH = 200;
 const WAVE_SPACING = 4;
 
-// ✅ 추가: 파동별 floating box 표시용 정보
+// 추가: 파동별 floating box 표시용 정보
 const FLOATING_BOXES = [
   { label: "Initial Access", frame: 110 },
   { label: "Execution", frame: 150 },
@@ -104,7 +104,7 @@ export default function TimeSeriesGraph() {
     <div className="relative bg-white border rounded shadow overflow-hidden">
       {/* Floating Boxes + TimeLine */}
       <div className="absolute top-0 left-0 pointer-events-none">
-        {FLOATING_BOXES.map((box, i) => {
+        {FLOATING_BOXES.map((box) => {
           const left = LABEL_WIDTH + (box.frame - 9) * WAVE_SPACING - offset;
           return (
             <div key={box.label}>
