@@ -47,9 +47,10 @@ const generateWaveData = () => {
   const waveSpec: Record<number, { start: number; end: number; amp: number }> = {
     0: { start: 254, end: 274, amp: 10 },   // Initial Access
     1: { start: 294, end: 314, amp: 10 },   // Execution
+    3: { start: 334, end: 354, amp: 10 },   // Privilege Escalation
     6: { start: 334, end: 354, amp: 10 },   // Discovery
-    2: { start: 334, end: 354, amp: 10 },   // Persistence
     4: { start: 334, end: 354, amp: 10 },   // Defense Evasion
+    2: { start: 374, end: 394, amp: 10 },   // Persistence
     7: { start: 374, end: 394, amp: 10 },   // Lateral Movement
     8: { start: 414, end: 434, amp: 10 },   // Collection
   };
@@ -99,7 +100,7 @@ export default function TimeSeriesGraph() {
     const yCenter = row * ROW_HEIGHT + TOP_PADDING + 50;
     const points = waveData.current[row];
     const maxAmp = Math.max(...points.map((v) => Math.abs(v)));
-    const shouldReduce = row === 2 || row === 4;
+    const shouldReduce = row === 2 || row === 3 || row === 4;
     const scale = (ROW_HEIGHT * (shouldReduce ? 0.2 : 0.5)) / (maxAmp || 1);
 
     let d = "";
@@ -148,7 +149,7 @@ export default function TimeSeriesGraph() {
             <div
               className="absolute px-2 py-1 bg-white text-xs border rounded shadow-sm font-semibold text-gray-800 whitespace-nowrap text-center"
               style={{
-                top: 4,
+                top: 15,
                 left,
                 width: BOX_WIDTH,
               }}
@@ -161,8 +162,8 @@ export default function TimeSeriesGraph() {
               className="absolute w-px bg-gray-400"
               style={{
                 left: left + BOX_WIDTH / 2,
-                top: 32,
-                height: waveY - 40,
+                top: 42,
+                height: waveY - 50,
               }}
             />
             {/* 동그라미 */}
@@ -204,6 +205,30 @@ export default function TimeSeriesGraph() {
           </clipPath>
         </defs>
 
+        {/* Y축 라벨 상단 제목 */}
+        <foreignObject
+          x={0}
+          y={TOP_PADDING - ROW_HEIGHT}
+          width={LABEL_WIDTH}
+          height={ROW_HEIGHT}
+        >
+          <div className="bg-white h-full w-full border-b border-gray-300 flex items-center justify-center pt-1.5">
+            <span className="text-base font-bold text-gray-800">
+              Detected Tactics
+            </span>
+          </div>
+        </foreignObject>
+
+        {/* 오른쪽 구분선 */}
+        <line
+          x1={LABEL_WIDTH}
+          y1={TOP_PADDING - ROW_HEIGHT}
+          x2={LABEL_WIDTH}
+          y2={TACTICS.length * ROW_HEIGHT + TOP_PADDING}
+          stroke="#ccc"
+          strokeWidth={2}
+        />
+
         {TACTICS.map((label, i) => (
           <g key={label}>
             {/* 좌측 라벨 영역 */}
@@ -228,6 +253,16 @@ export default function TimeSeriesGraph() {
               y2={(i + 1) * ROW_HEIGHT + TOP_PADDING}
               stroke="#ccc"
               strokeWidth={1}
+            />
+
+            {/* Initial Access 위 강조선 */}
+            <line
+              x1={0}
+              y1={TOP_PADDING}
+              x2={3000}
+              y2={TOP_PADDING}
+              stroke="#999"
+              strokeWidth={1.5}
             />
 
             {/* 그래프 라인 (클립 적용) */}
