@@ -3,242 +3,267 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
-import { CytoscapeStyle } from "@/types/cytoscape-style";
+import * as d3 from "d3";
 
 cytoscape.use(dagre);
 
 export default function MitrePage() {
   const cyRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [cy, setCy] = useState<cytoscape.Core | null>(null);
-  const [showGraph, setShowGraph] = useState(false);
 
-  const forkSiblings = useMemo(
+  const path = useMemo(
     () => [
+      "Initial Access",
+      "Execution",
       "Discovery",
-      "Persistence",
-      "Privilege Escalation",
-      "Defense Evasion",
+      "Lateral Movement",
+      "Collection",
     ],
     []
   );
 
-  const detectedPath = useMemo(
-    () => ["Initial Access", "Execution", "Discovery", "Lateral Movement"],
-    []
-  );
-
-  const nodes = useMemo(
+  const allNodes = useMemo(
     () =>
       [
-        {
-          id: "Initial Access",
-          tactic: "Initial Access",
-          technique: "T1078",
-          detectTime: "2025-04-04 12:59 (UTC)",
-          capec: "CAPEC-521",
-          route: "Default Account",
-        },
-        {
-          id: "Execution",
-          tactic: "Execution",
-          technique: "T1059",
-          detectTime: "2025-04-04 13:25 (UTC)",
-          capec: "CAPEC-242",
-          tool: "PowerShell",
-        },
-        {
-          id: "Discovery",
-          tactic: "Discovery",
-          technique: "T1201",
-          detectTime: "2025-04-04 13:32 (UTC)",
-          capec: "CAPEC-640",
-        },
-        { id: "Persistence" },
-        { id: "Privilege Escalation" },
-        { id: "Defense Evasion" },
-        { id: "Lateral Movement" },
-        { id: "Credential Access" },
-        { id: "Impact" },
-        { id: "Collection" },
-      ].map((d) => ({ data: { ...d, status: "off" } })),
+        "Initial Access",
+        "Execution",
+        "Discovery",
+        "Persistence",
+        "Privilege Escalation",
+        "Defense Evasion",
+        "Lateral Movement",
+        "Credential Access",
+        "Impact",
+        "Collection",
+        "Exfiltration",
+      ].map((id) => ({ data: { id, status: "off" } })),
     []
   );
 
-  const edges = useMemo(
+  const allEdges = useMemo(
     () =>
       [
-        { source: "Initial Access", target: "Execution" },
-        { source: "Execution", target: "Discovery" },
-        { source: "Execution", target: "Persistence" },
-        { source: "Execution", target: "Privilege Escalation" },
-        { source: "Execution", target: "Defense Evasion" },
-        { source: "Discovery", target: "Lateral Movement" },
-        { source: "Lateral Movement", target: "Collection" },
-        { source: "Persistence", target: "Credential Access" },
-        { source: "Defense Evasion", target: "Privilege Escalation" },
-        { source: "Privilege Escalation", target: "Impact" },
-      ].map((e) => ({ data: e })),
+        ["Initial Access", "Execution"],
+        ["Execution", "Discovery"],
+        ["Execution", "Persistence"],
+        ["Execution", "Privilege Escalation"],
+        ["Execution", "Defense Evasion"],
+        ["Discovery", "Lateral Movement"],
+        ["Discovery", "Persistence"],
+        ["Lateral Movement", "Collection"],
+        ["Collection", "Credential Access"],
+        ["Credential Access", "Exfiltration"],
+        ["Privilege Escalation", "Impact"],
+        ["Defense Evasion", "Privilege Escalation"],
+      ].map(([source, target]) => ({
+        data: { source, target, id: `${source}-${target}` },
+      })),
     []
   );
 
-  const styles: CytoscapeStyle[] = useMemo(
+  const styles = useMemo(
     () => [
       {
         selector: "node",
         style: {
           label: "data(id)",
           width: 160,
-          height: 60,
+          height: 80,
           shape: "roundrectangle",
           "text-valign": "center",
           "text-halign": "center",
-          "font-size": 14,
-          "background-color": "#ddd",
+          "font-size": 18,
+          "background-color": "#e0e0e0",
+          "border-width": 2,
+          "border-color": "#aaa",
           color: "#333",
           "text-wrap": "wrap",
-          "text-max-width": "140px",
-        },
-      },
-      {
-        selector: 'node[status = "on"]',
-        style: {
-          "background-color": "#c8102e",
-          color: "#fff",
-          "font-weight": "bold",
-        },
-      },
-      {
-        selector: 'node[status = "anticipated"]',
-        style: {
-          "background-color": "#40024D",
-          color: "#fff",
         },
       },
       {
         selector: "edge",
-        style: {
-          width: 2,
-          "line-color": "#999",
-          "target-arrow-shape": "triangle",
-          "target-arrow-color": "#999",
-          "curve-style": "straight",
-        },
+        style: { display: "none" },
       },
     ],
     []
   );
 
+  const toSafeId = (id: string) => id.replace(/\s+/g, "-");
+
+  const drawEdgesWithD3 = (cyInstance: cytoscape.Core) => {
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    svg
+      .append("defs")
+      .append("marker")
+      .attr("id", "arrow")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 10)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "#999");
+
+    allEdges.forEach(({ data: { source, target, id } }) => {
+      const s = cyInstance.getElementById(source);
+      const t = cyInstance.getElementById(target);
+      if (!s || !t) return;
+
+      const sPos = s.renderedPosition();
+      const tPos = t.renderedPosition();
+      const path = d3.path();
+      path.moveTo(sPos.x + s.renderedWidth() / 2, sPos.y);
+      path.bezierCurveTo(
+        (sPos.x + tPos.x) / 2 + 40,
+        sPos.y,
+        (sPos.x + tPos.x) / 2 - 40,
+        tPos.y,
+        tPos.x - t.renderedWidth() / 2,
+        tPos.y
+      );
+
+      svg
+        .append("path")
+        .attr("id", `edge-${toSafeId(id)}`)
+        .attr("stroke", "#999")
+        .attr("stroke-width", 2)
+        .attr("fill", "none")
+        .attr("marker-end", "url(#arrow)")
+        .attr("d", path.toString());
+    });
+  };
+
   useEffect(() => {
     if (cyRef.current && !cy) {
-      const cyInstance = cytoscape({
+      const instance = cytoscape({
         container: cyRef.current,
-        elements: { nodes, edges },
+        elements: [...allNodes, ...allEdges],
+        style: styles as unknown as cytoscape.StylesheetCSS[],
         layout: {
           name: "dagre",
           // @ts-expect-error: rankDir is used by cytoscape-dagre plugin
           rankDir: "LR",
-          rankSep: 100,
           nodeSep: 100,
-          spacingFactor: 1.2,
+          rankSep: 120,
         },
-        style: styles,
         userZoomingEnabled: false,
         userPanningEnabled: false,
         boxSelectionEnabled: false,
         autoungrabify: true,
       });
 
-      cyInstance.on("mouseover", "node", (e) => {
-        const tooltip = document.getElementById("tooltip");
-        const data = e.target.data();
-        if (tooltip) {
-          tooltip.innerHTML = `
-            <strong>Tactic:</strong> ${data.tactic || "-"}<br/>
-            <strong>Technique:</strong> ${data.technique || "-"}<br/>
-            ${data.route ? `<strong>Route:</strong> ${data.route}<br/>` : ""}
-            ${data.tool ? `<strong>Tool:</strong> ${data.tool}<br/>` : ""}
-            <strong>Detect Time:</strong> ${data.detectTime || "-"}<br/>
-            <strong>MITRE CAPEC:</strong> ${data.capec || "-"}
-          `;
-          tooltip.classList.remove("hidden");
-        }
-      });
-
-      cyInstance.on("mouseout", () => {
-        const tooltip = document.getElementById("tooltip");
-        if (tooltip) tooltip.classList.add("hidden");
-      });
-
-      cyInstance.on("mousemove", (e) => {
-        const tooltip = document.getElementById("tooltip");
-        if (tooltip) {
-          tooltip.style.left = e.originalEvent.pageX + 10 + "px";
-          tooltip.style.top = e.originalEvent.pageY - 10 + "px";
-        }
-      });
-
-      setCy(cyInstance);
+      setCy(instance);
+      instance.ready(() => drawEdgesWithD3(instance));
     }
-  }, [cy, nodes, edges, styles]);
+  }, [cy, allEdges, allNodes, drawEdgesWithD3, styles]);
 
+  // 1. 상태 추가
+  const [visible, setVisible] = useState(false);
+
+  // 2. handleStart 안에 추가
   const handleStart = () => {
     if (!cy) return;
-    let delay = 0;
+    setVisible(true); // 👉 시작하면 노출
 
-    for (let i = 0; i < detectedPath.length; i++) {
-      const currentId = detectedPath[i];
+    let step = 0;
+    const visited = new Set<string>();
 
-      setTimeout(() => {
-        const current = cy.getElementById(currentId);
-        if (current) current.data("status", "on");
+    const proceed = () => {
+      if (step >= path.length) return;
 
-        if (i === 0) setShowGraph(true);
+      const current = cy.getElementById(path[step]);
+      visited.add(current.id());
 
-        const successors = current?.outgoers("node");
-        successors.forEach((s) => {
-          if (s.data("status") === "off") {
-            s.data("status", "anticipated");
+      current.animate(
+        {
+          style: { "background-color": "#c8102e", color: "#fff" },
+        },
+        { duration: 400 }
+      );
+
+      current.outgoers("node").forEach((n) => {
+        if (n.data("status") === "off") {
+          n.data("status", "anticipated");
+          n.animate(
+            {
+              style: { "background-color": "#40024D", color: "#fff" },
+            },
+            { duration: 400 }
+          );
+        }
+      });
+
+      if (step > 0) {
+        const prev = cy.getElementById(path[step - 1]);
+        prev.outgoers("node").forEach((n) => {
+          const isAnticipated = n.data("status") === "anticipated";
+          const isConnected = n.edgesWith(current).length > 0;
+          if (isAnticipated && !isConnected && !visited.has(n.id())) {
+            const successors = n.successors().filter((s) => s.isNode());
+            const connectedEdges = n.connectedEdges();
+
+            connectedEdges.forEach((e) => {
+              const safeId = toSafeId(e.id());
+              d3.select(`#edge-${safeId}`).remove();
+              cy.remove(e);
+            });
+
+            successors.forEach((child) => {
+              child.animate(
+                {
+                  position: {
+                    x: child.position("x") + (Math.random() * 100 - 50),
+                    y: child.position("y") + (Math.random() * 100 - 50),
+                  },
+                  style: { width: 1, height: 1, opacity: 0 },
+                },
+                {
+                  duration: 600,
+                  complete: () => {
+                    cy.remove(child);
+                  },
+                }
+              );
+            });
+
+            n.animate(
+              {
+                position: {
+                  x: n.position("x") + (Math.random() * 100 - 50),
+                  y: n.position("y") + (Math.random() * 100 - 50),
+                },
+                style: { width: 1, height: 1, opacity: 0 },
+              },
+              {
+                duration: 600,
+                complete: () => {
+                  cy.remove(n);
+                },
+              }
+            );
           }
         });
 
-        if (i > 1 && forkSiblings.includes(currentId)) {
-          forkSiblings.forEach((sibling) => {
-            if (sibling !== currentId) {
-              const target = cy.getElementById(sibling);
-              if (target) {
-                const descendants = target.successors();
-                target.animate(
-                  {
-                    position: {
-                      x: target.position("x") + (Math.random() * 200 - 100),
-                      y: target.position("y") + (Math.random() * 200 - 100),
-                    },
-                    style: {
-                      width: 1,
-                      height: 1,
-                      opacity: 0,
-                      "background-opacity": 0,
-                      "border-opacity": 0,
-                      "text-opacity": 0,
-                    },
-                  },
-                  {
-                    duration: 700,
-                    complete: () => {
-                      cy.remove(descendants);
-                      cy.remove(target.connectedEdges());
-                      cy.remove(target);
-                    },
-                  }
-                );
-              }
-            }
-          });
-        }
-      }, delay);
+        prev.outgoers("edge").forEach((e) => {
+          const target = e.target();
+          if (!visited.has(target.id()) && target.id() !== current.id()) {
+            const safeId = toSafeId(e.id());
+            d3.select(`#edge-${safeId}`).remove();
+            cy.remove(e);
+          }
+        });
+      }
 
-      delay += 5000;
-    }
+      step++;
+      setTimeout(proceed, 1000);
+    };
+
+    proceed();
   };
 
   return (
@@ -250,55 +275,52 @@ export default function MitrePage() {
       >
         시작
       </button>
-
       <div
-        ref={cyRef}
+        className="absolute bottom-5.1 left-5.1 bg-white border text-sm"
         style={{
-          width: "100%",
-          height: "700px",
-          border: "1px solid #ddd",
-          marginBottom: "20px",
-          opacity: showGraph ? 1 : 0,
-          transition: "opacity 1s ease-in-out",
-          pointerEvents: showGraph ? "auto" : "none",
+          borderRadius: 0,
+          padding: "6px 10px",
+          borderColor: "#888",
+          margin: 0,
+          boxShadow: "none",
         }}
-      />
-
-      {/* 툴팁 */}
-      <div
-        id="tooltip"
-        className="hidden"
-        style={{
-          position: "absolute",
-          zIndex: 1000,
-          padding: "8px 12px",
-          background: "white",
-          border: "1px solid #ccc",
-          fontSize: "13px",
-          lineHeight: "1.4",
-          boxShadow: "2px 2px 8px rgba(0, 0, 0, 0.15)",
-          pointerEvents: "none",
-          whiteSpace: "nowrap",
-        }}
-      />
-
-      {/* 범례 */}
-      {showGraph && (
-        <div className="absolute left-6 bottom-6 space-y-2 text-sm bg-white p-2 rounded shadow border">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded-full bg-[#c8102e]" />
-            <span>Detected</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded-full bg-[#40024D]" />
-            <span>Anticipated</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded-full bg-[#ddd]" />
-            <span>Disregarded</span>
-          </div>
+      >
+        <div className="flex items-center mb-1">
+          <div
+            className="w-3 h-3 rounded-full mr-2"
+            style={{ backgroundColor: "#c8102e" }}
+          ></div>
+          Detected
         </div>
-      )}
+        <div className="flex items-center mb-1">
+          <div
+            className="w-3 h-3 rounded-full mr-2"
+            style={{ backgroundColor: "#40024D" }}
+          ></div>
+          Anticipated
+        </div>
+        <div className="flex items-center">
+          <div
+            className="w-3 h-3 rounded-full mr-2"
+            style={{ backgroundColor: "#ccc" }}
+          ></div>
+          Disregarded
+        </div>
+      </div>
+      <div className="relative w-full h-[700px] border border-gray-300">
+        <svg
+          ref={svgRef}
+          className={`absolute top-0 left-0 w-full h-full pointer-events-none transition-opacity duration-700 ${
+            visible ? "opacity-100" : "opacity-0"
+          }`}
+        />
+        <div
+          ref={cyRef}
+          className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ${
+            visible ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      </div>
     </div>
   );
 }

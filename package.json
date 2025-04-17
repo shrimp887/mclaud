@@ -10,16 +10,23 @@
   },
   "dependencies": {
     "cytoscape": "^3.31.2",
+    "cytoscape-cola": "^2.5.1",
     "cytoscape-dagre": "^2.5.0",
+    "cytoscape-elk": "^2.3.0",
+    "d3": "^7.9.0",
+    "d3-selection": "^3.0.0",
+    "d3-transition": "^3.0.1",
     "dagre": "^0.8.5",
     "next": "15.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tsparticles": "^3.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/cytoscape-dagre": "^2.3.3",
+    "@types/d3": "^7.4.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
