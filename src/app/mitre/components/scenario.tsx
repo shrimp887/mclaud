@@ -353,7 +353,7 @@ export default function MitrePage() {
       }
 
       step++;
-      setTimeout(proceed, 1000);
+      setTimeout(proceed, 5000);
     };
 
     proceed();
