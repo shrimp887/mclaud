@@ -89,6 +89,69 @@ export default function MitrePage() {
     []
   );
 
+  const nodeDetails: Record<
+    string,
+    {
+      tactic: string;
+      technique: string;
+      tool: string;
+      detectTime: string;
+      capec: string;
+    }
+  > = {
+    "Initial Access": {
+      tactic: "Initial Access",
+      technique: "T1190",
+      tool: "Web Exploit",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-137",
+    },
+    Execution: {
+      tactic: "Execution",
+      technique: "T1059",
+      tool: "Reverse Shell",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-111",
+    },
+    Discovery: {
+      tactic: "Discovery",
+      technique: "T1082 - System Information Discovery",
+      tool: "Systeminfo",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-163",
+    },
+    "Lateral Movement": {
+      tactic: "Lateral Movement",
+      technique: "T1021",
+      tool: "SSH Client",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-550",
+    },
+    Collection: {
+      tactic: "Collection",
+      technique: "T1005",
+      tool: "Cloud CLI",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-118",
+    },
+    "Credential Access": {
+      tactic: "Credential Access",
+      technique: "T1552",
+      tool: "Credential Harvesting via Metadata API",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-640",
+    },
+    Exfiltration: {
+      tactic: "Exfiltration",
+      technique: "T1041",
+      tool: "Web Transfer",
+      detectTime: "202x-xx-xx xx:xx (UTC)",
+      capec: "CAPEC-157",
+    },
+
+    // ... 계속 추가 가능
+  };
+
   const toSafeId = (id: string) => id.replace(/\s+/g, "-");
 
   const drawEdgesWithD3 = (cyInstance: cytoscape.Core) => {
@@ -138,6 +201,13 @@ export default function MitrePage() {
     });
   };
 
+  // 📌 Tooltip 상태
+  const [activeNode, setActiveNode] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   useEffect(() => {
     if (cyRef.current && !cy) {
       const instance = cytoscape({
@@ -159,16 +229,42 @@ export default function MitrePage() {
 
       setCy(instance);
       instance.ready(() => drawEdgesWithD3(instance));
-    }
-  }, [cy, allEdges, allNodes, drawEdgesWithD3, styles]);
 
-  // 1. 상태 추가
+      instance.on("tap", "node", (event) => {
+        const node = event.target;
+        const nodeId = node.id();
+        const pos = node.renderedPosition();
+        const height = node.renderedHeight();
+
+        // 상태 확인
+        if (node.data("status") !== "on") {
+          setActiveNode(null);
+          setTooltipPosition(null);
+          return;
+        }
+
+        const cyContainer = cyRef.current?.getBoundingClientRect();
+        if (!cyContainer) return;
+
+        if (activeNode === nodeId) {
+          setActiveNode(null);
+          setTooltipPosition(null);
+        } else {
+          setActiveNode(nodeId);
+          setTooltipPosition({
+            x: cyContainer.left + pos.x,
+            y: cyContainer.top + pos.y + height / 2 + 10,
+          });
+        }
+      });
+    }
+  }, [cy, allEdges, allNodes, styles, drawEdgesWithD3]);
+
   const [visible, setVisible] = useState(false);
 
-  // 2. handleStart 안에 추가
   const handleStart = () => {
     if (!cy) return;
-    setVisible(true); // 👉 시작하면 노출
+    setVisible(true);
 
     let step = 0;
     const visited = new Set<string>();
@@ -179,10 +275,9 @@ export default function MitrePage() {
       const current = cy.getElementById(path[step]);
       visited.add(current.id());
 
+      current.data("status", "on");
       current.animate(
-        {
-          style: { "background-color": "#c8102e", color: "#fff" },
-        },
+        { style: { "background-color": "#c8102e", color: "#fff" } },
         { duration: 400 }
       );
 
@@ -190,9 +285,7 @@ export default function MitrePage() {
         if (n.data("status") === "off") {
           n.data("status", "anticipated");
           n.animate(
-            {
-              style: { "background-color": "#40024D", color: "#fff" },
-            },
+            { style: { "background-color": "#40024D", color: "#fff" } },
             { duration: 400 }
           );
         }
@@ -275,6 +368,7 @@ export default function MitrePage() {
       >
         시작
       </button>
+
       <div
         className="absolute bottom-5.1 left-5.1 bg-white border text-sm"
         style={{
@@ -307,6 +401,36 @@ export default function MitrePage() {
           Disregarded
         </div>
       </div>
+
+      {activeNode && tooltipPosition && nodeDetails[activeNode] && (
+        <div
+          className="fixed bg-white border border-gray-400 shadow-md p-3 text-sm"
+          style={{
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+            transform: "translate(-50%, 0)",
+            zIndex: 1000,
+            minWidth: "240px",
+          }}
+        >
+          <div>
+            <strong>Tactic</strong>: {nodeDetails[activeNode].tactic}
+          </div>
+          <div>
+            <strong>Technique</strong>: {nodeDetails[activeNode].technique}
+          </div>
+          <div>
+            <strong>Tool</strong>: {nodeDetails[activeNode].tool}
+          </div>
+          <div>
+            <strong>Detect Time</strong>: {nodeDetails[activeNode].detectTime}
+          </div>
+          <div>
+            <strong>MITRE CAPEC</strong>: {nodeDetails[activeNode].capec}
+          </div>
+        </div>
+      )}
+
       <div className="relative w-full h-[700px] border border-gray-300">
         <svg
           ref={svgRef}
