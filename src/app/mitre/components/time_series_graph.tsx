@@ -275,7 +275,14 @@ export default function TimeSeriesGraph() {
               y={i * ROW_HEIGHT + TOP_PADDING}
               width={3000}
               height={ROW_HEIGHT}
-              fill={highlightRows.includes(i) ? "#FEF9C3" : "white"} // 파형 배경색
+              fill={
+                highlightRows.length > 0
+                  ? highlightRows.includes(i)
+                    ? "#FEF9C3" // 강조된 row는 노란색
+                    : "#f3f4f6" // 나머지는 연한 회색 (tailwind 'gray-100')
+                  : "white" // 아무 박스도 없을 땐 모두 흰 배경
+              }
+              
             />
 
             <foreignObject
