@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 const TACTICS = [
   "Initial Access",
@@ -75,6 +76,8 @@ const generateWaveData = () => {
 };
 
 function isBoxVisible(frame: number, offset: number, svgLeft: number): boolean {
+  if (typeof window === "undefined") return false;
+
   const frameX = LABEL_WIDTH + (frame - 5) * WAVE_SPACING;
   const centerX = frameX - offset + svgLeft + 340;
   return centerX >= 0 && centerX <= window.innerWidth;
@@ -169,40 +172,58 @@ export default function TimeSeriesGraph() {
           const scale = (ROW_HEIGHT * (shouldReduce ? 0.2 : 0.5)) / (maxAmp || 1);
 
           const waveY = centerY - amp * scale;
+          const isVisible = isBoxVisible(box.frame, offset, svgRef.current?.getBoundingClientRect().left || 0);
 
           return (
             <div key={box.label}>
-              <div
-                className="absolute px-2 py-1 bg-white text-xs border rounded shadow-sm font-semibold text-gray-800 whitespace-nowrap text-center"
-                style={{
-                  top: 15,
-                  left,
-                  width: BOX_WIDTH,
-                }}
-              >
-                {box.label}
-              </div>
-
-              <div
-                className="absolute w-px bg-gray-400"
-                style={{
-                  left: left + BOX_WIDTH / 2,
-                  top: 42,
-                  height: waveY - 50,
-                }}
-              />
-              <svg
-                className="absolute"
-                style={{
-                  left: left + BOX_WIDTH / 2 - 4,
-                  top: waveY - 18,
-                  pointerEvents: "none",
-                }}
-                width={8}
-                height={8}
-              >
-                <circle cx={4} cy={4} r={4} fill="#f97316" />
-              </svg>
+              {/* 점: 위치 고정 아님, offset에 따라 계속 이동 */}
+              {isVisible && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6 }}
+                  className="absolute"
+                  style={{
+                    transform: `translateX(${left + BOX_WIDTH / 2 - 4}px)` ,
+                    top: waveY - 18,
+                    pointerEvents: "none",
+                  }}
+                >
+                  <svg width={8} height={8}>
+                    <circle cx={4} cy={4} r={4} fill="#f97316" />
+                  </svg>
+                </motion.div>
+              )}
+        
+              {/* 선: 아래에서 위로 생성 */}
+              {isVisible && (
+                <motion.div
+                  initial={{ height: 0, top: waveY, opacity: 0 }}
+                  animate={{ height: waveY - 57, top: 40, opacity: 1 }}
+                  transition={{ delay: 1, duration: 0.6 }}
+                  className="absolute w-px bg-gray-400"
+                  style={{
+                    left: left + BOX_WIDTH / 2,
+                  }}
+                />
+              )}
+        
+              {/* 박스: 가장 마지막 등장 */}
+              {isVisible && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.6, duration: 0.3 }}
+                  className="absolute px-2 py-1 bg-white text-xs border rounded shadow-sm font-semibold text-gray-800 whitespace-nowrap text-center"
+                  style={{
+                    top: 15,
+                    left,
+                    width: BOX_WIDTH,
+                  }}
+                >
+                  {box.label}
+                </motion.div>
+              )}
             </div>
           );
         })}
