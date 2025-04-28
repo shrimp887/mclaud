@@ -201,7 +201,7 @@ export default function MitrePage() {
     });
   };
 
-  // 📌 Tooltip 상태
+  // Tooltip 상태
   const [activeNode, setActiveNode] = useState<string | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{
     x: number;
@@ -234,7 +234,12 @@ export default function MitrePage() {
         const node = event.target;
         const nodeId = node.id();
         const pos = node.renderedPosition();
-        const height = node.renderedHeight();
+
+        const container = cyRef.current;
+        if (!container) return;
+
+        const scrollLeft = container.scrollLeft;
+        const scrollTop = container.scrollTop;
 
         // 상태 확인
         if (node.data("status") !== "on") {
@@ -243,17 +248,15 @@ export default function MitrePage() {
           return;
         }
 
-        const cyContainer = cyRef.current?.getBoundingClientRect();
-        if (!cyContainer) return;
-
         if (activeNode === nodeId) {
           setActiveNode(null);
           setTooltipPosition(null);
         } else {
           setActiveNode(nodeId);
+
           setTooltipPosition({
-            x: cyContainer.left + pos.x,
-            y: cyContainer.top + pos.y + height / 2 + 10,
+            x: pos.x - scrollLeft,
+            y: pos.y - scrollTop + 170,
           });
         }
       });
@@ -404,29 +407,64 @@ export default function MitrePage() {
 
       {activeNode && tooltipPosition && nodeDetails[activeNode] && (
         <div
-          className="fixed bg-white border border-gray-400 shadow-md p-3 text-sm"
+          className="absolute bg-white border border-gray-400 shadow-md p-3 text-sm"
           style={{
             left: tooltipPosition.x,
             top: tooltipPosition.y,
-            transform: "translate(-50%, 0)",
+            transform: "translate(-50%, 10px)",
             zIndex: 1000,
-            minWidth: "240px",
+            minWidth: "280px",
+            backgroundColor: "white",
+            borderColor: "#888",
+            borderWidth: "1px",
+            borderStyle: "solid",
+            borderRadius: "4px",
           }}
         >
-          <div>
-            <strong>Tactic</strong>: {nodeDetails[activeNode].tactic}
+          <div
+            style={{
+              position: "absolute",
+              top: "-7px",
+              left: "60%",
+              transform: "translateX(-50%)",
+              width: "14px",
+              height: "7px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: "10px",
+                height: "10px",
+                backgroundColor: "white",
+                borderTop: "1px solid #888",
+                borderLeft: "1px solid #888",
+                borderRight: "1px solid #888",
+                transform: "rotate(45deg)",
+                position: "absolute",
+                top: "2px",
+                left: "2px",
+                backgroundClip: "padding-box",
+              }}
+            />
           </div>
-          <div>
-            <strong>Technique</strong>: {nodeDetails[activeNode].technique}
-          </div>
-          <div>
-            <strong>Tool</strong>: {nodeDetails[activeNode].tool}
-          </div>
-          <div>
-            <strong>Detect Time</strong>: {nodeDetails[activeNode].detectTime}
-          </div>
-          <div>
-            <strong>MITRE CAPEC</strong>: {nodeDetails[activeNode].capec}
+
+          <div className="text-sm text-black">
+            <div>
+              <strong>Tactic</strong>: {nodeDetails[activeNode].tactic}
+            </div>
+            <div>
+              <strong>Technique</strong>: {nodeDetails[activeNode].technique}
+            </div>
+            <div>
+              <strong>Tool</strong>: {nodeDetails[activeNode].tool}
+            </div>
+            <div>
+              <strong>Detect Time</strong>: {nodeDetails[activeNode].detectTime}
+            </div>
+            <div>
+              <strong>MITRE CAPEC</strong>: {nodeDetails[activeNode].capec}
+            </div>
           </div>
         </div>
       )}
