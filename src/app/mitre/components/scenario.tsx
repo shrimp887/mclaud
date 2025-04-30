@@ -256,7 +256,7 @@ export default function MitrePage() {
 
           setTooltipPosition({
             x: pos.x - scrollLeft,
-            y: pos.y - scrollTop + 170,
+            y: pos.y - scrollTop + 120,
           });
         }
       });
@@ -364,7 +364,6 @@ export default function MitrePage() {
 
   return (
     <div className="p-6 relative">
-      <h2 className="text-2xl font-bold mb-4">MITRE ATT&CK 탐지 시나리오</h2>
       <button
         onClick={handleStart}
         className="mb-4 px-4 py-2 bg-red-600 text-white rounded"

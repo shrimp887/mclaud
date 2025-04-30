@@ -17,6 +17,7 @@
     "d3-selection": "^3.0.0",
     "d3-transition": "^3.0.1",
     "dagre": "^0.8.5",
+    "framer-motion": "^12.9.2",
     "next": "15.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
