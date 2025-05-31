@@ -22,11 +22,16 @@ interface SeriesData {
   aws?: number;
   azure?: number;
   gcp?: number;
+  alert?: boolean;
 }
 
 interface ApiResponseEntry {
   index: string;
   buckets: LogBucket[];
+}
+
+interface AlertData {
+  timestamp: string;
 }
 
 const cloudColors: Record<string, string> = {
@@ -35,31 +40,38 @@ const cloudColors: Record<string, string> = {
   gcp: "#ff7f0e",
 };
 
-function toISOStringLocal(dt: Date) {
-  return new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-}
-
 export default function TestChart() {
   const [data, setData] = useState<SeriesData[]>([]);
-  const [start, setStart] = useState(
-    () => toISOStringLocal(new Date(Date.now() - 3600000)) // 기본 1시간 전
-  );
-  const [end, setEnd] = useState(""); // 비우면 현재 시간
-  const [selectedClouds, setSelectedClouds] = useState<string[]>([
-    "aws",
-    "azure",
-    "gcp",
-  ]);
+  const [alerts, setAlerts] = useState<string[]>([]);
 
+  // 시작 시간 = 현재 - 60초
+  const start = new Date(Date.now() - 60 * 1000).toISOString();
+  const end = new Date().toISOString();
+
+  // 📥 탐지 이벤트 불러오기
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/logs/webhook");
+      const json: AlertData[] = await res.json();
+
+      const timestamps = json.map((alert) => {
+        const d = new Date(alert.timestamp);
+        d.setMilliseconds(0); // 밀리초 제거
+        return d.toISOString().slice(0, 19); // yyyy-MM-ddTHH:mm:ss
+      });
+
+      setAlerts(timestamps);
+    } catch (e) {
+      console.error("웹훅 알림 불러오기 실패:", e);
+    }
+  }, []);
+
+  // 📈 로그 + 탐지 이벤트 함께 불러오기
   const fetchData = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      params.append("start", new Date(start).toISOString());
-      if (end) {
-        params.append("end", new Date(end).toISOString());
-      }
+      params.append("start", start);
+      params.append("end", end);
 
       const res = await fetch(`/api/logs?${params.toString()}`);
       const raw: ApiResponseEntry[] = await res.json();
@@ -68,80 +80,61 @@ export default function TestChart() {
 
       raw.forEach((entry: ApiResponseEntry) => {
         const source = entry.index.replace("-logs", "");
-        if (!selectedClouds.includes(source)) return;
-
         entry.buckets.forEach((b: LogBucket) => {
           if (!combined[b.key_as_string]) {
             combined[b.key_as_string] = { timestamp: b.key_as_string };
           }
 
-          const key = source as keyof Omit<SeriesData, "timestamp">;
+          const key = source as keyof Omit<SeriesData, "timestamp" | "alert">;
           combined[b.key_as_string][key] = b.doc_count;
         });
       });
 
-      const sorted = Object.values(combined).sort(
+      const sorted: SeriesData[] = Object.values(combined)
+        .map((d) => ({
+          ...d,
+          alert: alerts.includes(d.timestamp.slice(0, 19)),
+        }))
+        .sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+
+      // 누락된 alert timestamp가 있다면 dummy point 추가
+      alerts.forEach((ts) => {
+        if (!sorted.some((d) => d.timestamp.slice(0, 19) === ts)) {
+          sorted.push({ timestamp: ts, alert: true });
+        }
+      });
+
+      sorted.sort(
         (a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
-      setData(sorted);
+      // 최근 60초만 유지
+      setData(sorted.slice(-60));
     } catch (e) {
       console.error("데이터 불러오기 실패:", e);
     }
-  }, [start, end, selectedClouds]);
+  }, [alerts, start, end]); // ✅ 의존성 누락 수정
 
+  // 🔁 1초마다 데이터 새로 고침
   useEffect(() => {
+    fetchAlerts();
     fetchData();
-    const interval = setInterval(fetchData, 60000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    const interval = setInterval(() => {
+      fetchAlerts();
+      fetchData();
+    }, 1000);
 
-  const toggleCloud = (cloud: string) => {
-    setSelectedClouds((prev) =>
-      prev.includes(cloud) ? prev.filter((c) => c !== cloud) : [...prev, cloud]
-    );
-  };
+    return () => clearInterval(interval);
+  }, [fetchAlerts, fetchData]);
 
   return (
     <div className="bg-white p-6 rounded-xl shadow">
-      <h3 className="text-lg font-bold mb-4">클라우드 로그 시계열 그래프</h3>
+      <h3 className="text-lg font-bold mb-4">클라우드 로그 실시간 그래프 (1초 단위)</h3>
 
-      {/* 시간 선택 */}
-      <div className="flex gap-4 mb-4 items-center">
-        <label className="text-sm font-medium">시작 시간:</label>
-        <input
-          type="datetime-local"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
-          className="px-2 py-1 border rounded text-sm"
-        />
-
-        <label className="text-sm font-medium">끝 시간:</label>
-        <input
-          type="datetime-local"
-          value={end}
-          onChange={(e) => setEnd(e.target.value)}
-          className="px-2 py-1 border rounded text-sm"
-        />
-        <span className="text-xs text-gray-500">(비우면 현재 시간)</span>
-      </div>
-
-      {/* 클라우드 필터 */}
-      <div className="flex gap-4 mb-4">
-        {["aws", "azure", "gcp"].map((cloud) => (
-          <label key={cloud} className="flex items-center gap-1 text-sm">
-            <input
-              type="checkbox"
-              checked={selectedClouds.includes(cloud)}
-              onChange={() => toggleCloud(cloud)}
-            />
-            <span className="capitalize">{cloud}</span>
-          </label>
-        ))}
-      </div>
-
-      {/* 그래프 */}
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -149,17 +142,38 @@ export default function TestChart() {
           <YAxis />
           <Tooltip />
           <Legend />
-          {selectedClouds.map((cloud) => (
+          {["aws", "azure", "gcp"].map((cloud) => (
             <Line
               key={cloud}
               type="monotone"
               dataKey={cloud}
               stroke={cloudColors[cloud]}
               name={cloud.toUpperCase()}
+              dot={false}
             />
           ))}
+          <Line
+            type="monotone"
+            dataKey="alert"
+            name="탐지 이벤트"
+            stroke="transparent"
+            dot={({ cx, cy, payload }) =>
+              payload.alert ? (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={6}
+                  fill="red"
+                  stroke="black"
+                  strokeWidth={1}
+                />
+              ) : null
+            }
+            legendType="circle"
+          />
         </LineChart>
       </ResponsiveContainer>
     </div>
   );
 }
+
