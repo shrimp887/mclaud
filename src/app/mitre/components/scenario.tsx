@@ -256,7 +256,7 @@ export default function MitrePage() {
 
           setTooltipPosition({
             x: pos.x - scrollLeft,
-            y: pos.y - scrollTop + 120,
+            y: pos.y - scrollTop + 70,
           });
         }
       });
@@ -367,6 +367,15 @@ export default function MitrePage() {
       <button
         onClick={handleStart}
         className="mb-4 px-4 py-2 bg-red-600 text-white rounded"
+        style={{
+          opacity: 0,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100px",
+          height: "40px",
+          zIndex: 10,
+        }}
       >
         시작
       </button>

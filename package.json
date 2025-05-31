@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@opensearch-project/opensearch": "^3.5.1",
     "cytoscape": "^3.31.2",
     "cytoscape-cola": "^2.5.1",
     "cytoscape-dagre": "^2.5.0",
@@ -17,10 +18,13 @@
     "d3-selection": "^3.0.0",
     "d3-transition": "^3.0.1",
     "dagre": "^0.8.5",
+    "date-fns": "^4.1.0",
     "framer-motion": "^12.9.2",
     "next": "15.3.0",
     "react": "^19.0.0",
+    "react-datepicker": "^8.4.0",
     "react-dom": "^19.0.0",
+    "recharts": "^2.15.3",
     "tsparticles": "^3.8.1"
   },
   "devDependencies": {
