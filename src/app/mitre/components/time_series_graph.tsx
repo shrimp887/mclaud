@@ -1,335 +1,232 @@
 "use client";
+import React, { useEffect, useState, useRef } from "react";
 
-import React, { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-
-const TACTICS = [
-  "Initial Access",
-  "Execution",
-  "Persistence",
-  "Privilege Escalation",
-  "Defense Evasion",
-  "Credential Access",
-  "Discovery",
-  "Lateral Movement",
-  "Collection",
-  "Exfiltration",
-  "Impact",
-];
-
+const CLOUDS = ["aws-logs", "azure-logs", "gcp-logs"];
+const LABELS = ["AWS", "Azure", "GCP"];
 const ROW_HEIGHT = 60;
-const LABEL_WIDTH = 200;
-const WAVE_SPACING = 4;
+const LABEL_WIDTH = 120;
 const TOP_PADDING = 40;
+const INTERVAL_MS = 30 * 1000; // 10초마다 새로고침
 
-type FloatingBox = {
-  label: string;
-  frame: number;
-  rows: number[];
-};
-
-const FLOATING_BOXES: FloatingBox[] = [
-  { label: "Initial Access", frame: 194, rows: [] },
-  { label: "Discovery", frame: 234, rows: [2, 3, 4, 6] },
-  { label: "Lateral Movement", frame: 274, rows: [2, 7] },
-  { label: "Collection", frame: 325, rows: [8] },
-  { label: "Execution", frame: 373, rows: [5] },
-];
-
-function seededRandom(seed: number) {
-  const x = Math.sin(seed++) * 10000;
-  return x - Math.floor(x);
-}
-
-const generateWaveData = () => {
-  const rows: number[][] = [];
-  const totalLength = 500;
-  const baseSeed = 42;
-
-  const waveSpec: Record<number, { start: number; end: number; amp: number }> = {
-    0: { start: 254, end: 274, amp: 10 },
-    1: { start: 294, end: 314, amp: 10 },
-    3: { start: 334, end: 354, amp: 10 },
-    6: { start: 334, end: 354, amp: 10 },
-    4: { start: 334, end: 354, amp: 10 },
-    2: { start: 374, end: 394, amp: 10 },
-    7: { start: 374, end: 394, amp: 10 },
-    8: { start: 414, end: 434, amp: 10 },
-  };
-
-  for (let row = 0; row < TACTICS.length; row++) {
-    const wave: number[] = [];
-    const { start, end, amp } = waveSpec[row] || { start: 0, end: 0, amp: 2 };
-
-    for (let i = 0; i < totalLength; i++) {
-      if (i >= start && i <= end) {
-        const freq = 0.15 + seededRandom(baseSeed + row * 1000 + i) * 0.05;
-        wave.push(Math.abs(Math.sin(i * freq + row) * amp));
-      } else {
-        wave.push(0);
-      }
-    }
-    rows.push(wave);
-  }
-
-  return rows;
-};
-
-function isBoxVisible(frame: number, offset: number, svgLeft: number): boolean {
-  if (typeof window === "undefined") return false;
-
-  const frameX = LABEL_WIDTH + (frame - 5) * WAVE_SPACING;
-  const centerX = frameX - offset + svgLeft + 340;
-  return centerX >= 0 && centerX <= window.innerWidth;
-}
-
-export default function TimeSeriesGraph() {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const waveData = useRef(generateWaveData());
+export default function CloudLogVolumeGraph() {
+  const [logData, setLogData] = useState<number[][]>([[], [], []]);
+  const [labels, setLabels] = useState<string[]>([]);
   const [offset, setOffset] = useState(0);
-  const [highlightRows, setHighlightRows] = useState<number[]>([]);
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  const getRowBgColor = (index: number) =>
-    highlightRows.includes(index) ? "bg-green-300" : "bg-green-100";
+  // 1. 데이터 fetch
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
 
+    const fetchData = async () => {
+      const end = new Date();
+      const start = new Date(end.getTime() - 10 * 60 * 1000); // 최근 10분
+      const params = `start=${start.toISOString()}&end=${end.toISOString()}`;
+      const res = await fetch(`/api/logs?${params}`);
+      const json = await res.json();
+
+      const cloudData: number[][] = [];
+      let xLabels: string[] = [];
+      let maxLen = 0;
+      for (let i = 0; i < CLOUDS.length; i++) {
+        const buckets = json.find((x: any) => x.index === CLOUDS[i])?.buckets ?? [];
+        const arr = buckets.map((b: any) => b.doc_count);
+        cloudData.push(arr);
+        if (arr.length > maxLen) maxLen = arr.length;
+        if (buckets.length > 0 && xLabels.length === 0) {
+          xLabels = buckets.map((b: any) => b.key_as_string.slice(11));
+        }
+      }
+      const paddedCloudData = cloudData.map(arr =>
+        arr.length < xLabels.length
+          ? [...arr, ...Array(xLabels.length - arr.length).fill(0)]
+          : arr
+      );
+      setLogData(paddedCloudData);
+      setLabels(xLabels);
+    }; // ← 여기 반드시 닫혀야 함!
+
+    fetchData();
+    timer = setInterval(fetchData, INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // 2. 슬라이딩 효과 (원하면 유지)
   useEffect(() => {
     let lastTime = performance.now();
-    const speed = 20;
+    const speed = 10;
+    let anim: number;
 
     const animate = (now: number) => {
       const dt = (now - lastTime) / 1000;
       lastTime = now;
       setOffset((prev) => prev + dt * speed);
-      requestAnimationFrame(animate);
+      anim = requestAnimationFrame(animate);
     };
+    anim = requestAnimationFrame(animate);
 
-    const id = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(id);
+    return () => cancelAnimationFrame(anim);
   }, []);
 
-  useEffect(() => {
-    if (!svgRef.current) return;
-    const svgBounds = svgRef.current.getBoundingClientRect();
+  // 화면 너비에 따라 동적으로 x간격을 계산
+  const getX = (i: number, totalPoints: number, width: number) => {
+    const graphWidth = width - LABEL_WIDTH - 20;
+    return LABEL_WIDTH + (i / (totalPoints - 1)) * graphWidth - offset;
+  };
 
-    let latestVisibleBox: FloatingBox | null = null;
-  
-    for (const box of FLOATING_BOXES) {
-      if (isBoxVisible(box.frame, offset, svgBounds.left)) {
-        if (!latestVisibleBox || box.frame > latestVisibleBox.frame) {
-          latestVisibleBox = box;
-        }
-      }
-    }
+  // 그래프 path 생성
+  const GRAPH_TOP_PADDING = 12;
+  const GRAPH_BOTTOM_PADDING = 12;
 
-    if (latestVisibleBox) {
-      setHighlightRows(latestVisibleBox.rows);
-    } else {
-      setHighlightRows([]);
-    }
-  }, [offset]);
-  
+  const getPath = (row: number, width: number) => {
+    const points = logData[row] ?? [];
+    if (!points.length) return "";
 
-  const getPath = (row: number): string => {
-    const yCenter = row * ROW_HEIGHT + TOP_PADDING + 50;
-    const points = waveData.current[row];
-    const maxAmp = Math.max(...points.map((v) => Math.abs(v)));
-    const shouldReduce = row === 2 || row === 3 || row === 4;
-    const scale = (ROW_HEIGHT * (shouldReduce ? 0.2 : 0.5)) / (maxAmp || 1);
+    const yBoxTop = row * ROW_HEIGHT + TOP_PADDING + GRAPH_TOP_PADDING;
+    const yBoxHeight = ROW_HEIGHT - GRAPH_TOP_PADDING - GRAPH_BOTTOM_PADDING;
+
+    const maxVal = Math.max(...points, 1);
+    const minVal = Math.min(...points, 0);
+    const scale = yBoxHeight / (maxVal - minVal || 1);
 
     let d = "";
     for (let i = 0; i < points.length; i++) {
-      const x = LABEL_WIDTH + i * 4 - offset;
-      const y = yCenter - points[i] * scale;
+      const x = getX(i, points.length, width);
+      const y = yBoxTop + (maxVal - points[i]) * scale;
       d += i === 0 ? `M ${x},${y}` : ` L ${x},${y}`;
     }
     return d;
   };
 
+  // 반응형 SVG width 계산
+  const [svgWidth, setSvgWidth] = useState(800);
+  useEffect(() => {
+    function handleResize() {
+      if (svgRef.current) {
+        setSvgWidth(svgRef.current.clientWidth);
+      }
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // 실제 렌더
+  const svgHeight = CLOUDS.length * ROW_HEIGHT + TOP_PADDING + 40;
+
   return (
-    <div className="relative bg-white border rounded shadow overflow-hidden border-gray-300 rounded-xl shadow-md p-4">
-      <div className="absolute top-0 left-54 w-full h-full overflow-hidden pointer-events-none">
-        {FLOATING_BOXES.map((box) => {
-          const frameX = LABEL_WIDTH + (box.frame - 5) * WAVE_SPACING;
-          const left = frameX - offset;
-          const BOX_WIDTH = 120;
-
-          const MAPPING_ROW: Record<string, number> = {
-            "Initial Access": 0,
-            "Discovery": 1,
-            "Lateral Movement": 6,
-            "Collection": 7,
-            "Execution": 8,
-          };
-
-          const targetRow = MAPPING_ROW[box.label];
-          const points = waveData.current[targetRow] || [];
-          const pointIndex = Math.floor(box.frame);
-          const amp = points[pointIndex] || 0;
-
-          const centerY = targetRow * ROW_HEIGHT + TOP_PADDING + 50;
-          const maxAmp = Math.max(...points.map((v) => Math.abs(v)));
-          const shouldReduce = targetRow === 2 || targetRow === 4;
-          const scale = (ROW_HEIGHT * (shouldReduce ? 0.2 : 0.5)) / (maxAmp || 1);
-
-          const waveY = centerY - amp * scale;
-          const isVisible = isBoxVisible(box.frame, offset, svgRef.current?.getBoundingClientRect().left || 0);
-
-          return (
-            <div key={box.label}>
-              {/* 점: 위치 고정 아님, offset에 따라 계속 이동 */}
-              {isVisible && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6 }}
-                  className="absolute"
-                  style={{
-                    transform: `translateX(${left + BOX_WIDTH / 2 - 4}px)` ,
-                    top: waveY - 18,
-                    pointerEvents: "none",
-                  }}
-                >
-                  <svg width={8} height={8}>
-                    <circle cx={4} cy={4} r={4} fill="#f97316" />
-                  </svg>
-                </motion.div>
-              )}
-        
-              {/* 선: 아래에서 위로 생성 */}
-              {isVisible && (
-                <motion.div
-                  initial={{ height: 0, top: waveY, opacity: 0 }}
-                  animate={{ height: waveY - 57, top: 40, opacity: 1 }}
-                  transition={{ delay: 1, duration: 0.6 }}
-                  className="absolute w-px bg-gray-400"
-                  style={{
-                    left: left + BOX_WIDTH / 2,
-                  }}
-                />
-              )}
-        
-              {/* 박스: 가장 마지막 등장 */}
-              {isVisible && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1.6, duration: 0.3 }}
-                  className="absolute px-2 py-1 bg-white text-xs border rounded shadow-sm font-semibold text-gray-800 whitespace-nowrap text-center"
-                  style={{
-                    top: 15,
-                    left,
-                    width: BOX_WIDTH,
-                  }}
-                >
-                  {box.label}
-                </motion.div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
+    <div className="relative bg-white border rounded shadow p-4 w-full overflow-x-hidden">
       <svg
         ref={svgRef}
-        width={3000}
-        height={TACTICS.length * ROW_HEIGHT + TOP_PADDING}
-        style={{ background: "white" }}
+        width="100%"
+        height={svgHeight}
+        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+        style={{ background: "white", display: "block" }}
       >
         <defs>
           <clipPath id="graph-area">
             <rect
               x={LABEL_WIDTH}
               y={TOP_PADDING}
-              width={3000}
-              height={TACTICS.length * ROW_HEIGHT}
+              width={svgWidth - LABEL_WIDTH - 20}
+              height={CLOUDS.length * ROW_HEIGHT}
             />
           </clipPath>
         </defs>
 
+        {/* Y축 라벨 */}
         <foreignObject
           x={0}
           y={TOP_PADDING - ROW_HEIGHT}
           width={LABEL_WIDTH}
           height={ROW_HEIGHT}
         >
-          <div className="bg-white h-full w-full border-b border-gray-300 flex items-center justify-center pt-1.5">
+          <div className="bg-white h-full w-full flex items-center justify-center pt-1.5">
             <span className="text-base font-bold text-gray-800">
-              Detected Tactics
+              Cloud Platform
             </span>
           </div>
         </foreignObject>
 
+        {/* 세로 기준선 */}
         <line
           x1={LABEL_WIDTH}
           y1={TOP_PADDING - ROW_HEIGHT}
           x2={LABEL_WIDTH}
-          y2={TACTICS.length * ROW_HEIGHT + TOP_PADDING}
+          y2={CLOUDS.length * ROW_HEIGHT + TOP_PADDING}
           stroke="#ccc"
           strokeWidth={2}
         />
 
-        {TACTICS.map((label, i) => (          
+        {CLOUDS.map((label, i) => (
           <g key={label}>
             <rect
               x={LABEL_WIDTH}
               y={i * ROW_HEIGHT + TOP_PADDING}
-              width={3000}
+              width={svgWidth - LABEL_WIDTH - 20}
               height={ROW_HEIGHT}
-              fill={
-                highlightRows.length > 0
-                  ? highlightRows.includes(i)
-                    ? "#FEF9C3" // 강조된 row는 노란색
-                    : "#f3f4f6" // 나머지는 연한 회색 (tailwind 'gray-100')
-                  : "white" // 아무 박스도 없을 땐 모두 흰 배경
-              }
-              
+              fill="#f3f4f6"
             />
 
+            {/* 플랫폼 이름 */}
             <foreignObject
               x={0}
               y={i * ROW_HEIGHT + TOP_PADDING}
               width={LABEL_WIDTH}
               height={ROW_HEIGHT}
             >
-              <div
-                className={`h-full w-full border-r border-gray-300 flex items-center justify-center ${getRowBgColor(i)}`}
-              >
+              <div className="h-full w-full border-r border-gray-300 flex items-center justify-center bg-white">
                 <span className="text-sm font-semibold text-gray-700">
-                  {label}
+                  {LABELS[i]}
                 </span>
               </div>
             </foreignObject>
 
+            {/* 가로 구분선 */}
             <line
               x1={0}
               y1={(i + 1) * ROW_HEIGHT + TOP_PADDING}
-              x2={3000}
+              x2={svgWidth}
               y2={(i + 1) * ROW_HEIGHT + TOP_PADDING}
               stroke="#ccc"
               strokeWidth={1}
             />
 
-            {i === 0 && (
-              <line
-                x1={0}
-                y1={TOP_PADDING}
-                x2={3000}
-                y2={TOP_PADDING}
-                stroke="#999"
-                strokeWidth={1.5}
-              />
-            )}
-
+            {/* 웨이브(로그 수집량) */}
             <g clipPath="url(#graph-area)">
               <path
-                d={getPath(i)}
-                stroke="#f97316"
+                d={getPath(i, svgWidth)}
+                stroke={["#6366f1", "#10b981", "#f59e42"][i]}
                 fill="none"
-                strokeWidth={1.5}
+                strokeWidth={2}
               />
             </g>
           </g>
         ))}
+
+        {labels.length > 0 && (
+          <g>
+            {labels.map((time, i) => {
+              const interval = Math.ceil(labels.length / 7); // 7개 정도만 보이게
+              if (i % interval !== 0) return null;
+              const x = getX(i, labels.length, svgWidth);
+              if (x < LABEL_WIDTH || x > svgWidth - 20) return null;
+              return (
+                <text
+                  key={time + i}
+                  x={x}
+                  y={TOP_PADDING + CLOUDS.length * ROW_HEIGHT + 18}
+                  fontSize="11"
+                  fill="#777"
+                  textAnchor="middle"
+                >
+                  {time}
+                </text>
+              );
+            })}
+          </g>
+        )}
       </svg>
     </div>
   );
