@@ -1,12 +1,16 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 
+// 로그 데이터 타입 정의
+type Bucket = { doc_count: number; key_as_string: string };
+type LogBucket = { index: string; buckets: Bucket[] };
+
 const CLOUDS = ["aws-logs", "azure-logs", "gcp-logs"];
 const LABELS = ["AWS", "Azure", "GCP"];
 const ROW_HEIGHT = 60;
 const LABEL_WIDTH = 120;
 const TOP_PADDING = 40;
-const INTERVAL_MS = 30 * 1000; // 10초마다 새로고침
+const INTERVAL_MS = 30 * 1000; // 30초마다 새로고침
 
 export default function CloudLogVolumeGraph() {
   const [logData, setLogData] = useState<number[][]>([[], [], []]);
@@ -16,25 +20,23 @@ export default function CloudLogVolumeGraph() {
 
   // 1. 데이터 fetch
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-
     const fetchData = async () => {
       const end = new Date();
       const start = new Date(end.getTime() - 10 * 60 * 1000); // 최근 10분
       const params = `start=${start.toISOString()}&end=${end.toISOString()}`;
       const res = await fetch(`/api/logs?${params}`);
-      const json = await res.json();
+      const json: LogBucket[] = await res.json();
 
       const cloudData: number[][] = [];
       let xLabels: string[] = [];
       let maxLen = 0;
       for (let i = 0; i < CLOUDS.length; i++) {
-        const buckets = json.find((x: any) => x.index === CLOUDS[i])?.buckets ?? [];
-        const arr = buckets.map((b: any) => b.doc_count);
+        const buckets = json.find((x) => x.index === CLOUDS[i])?.buckets ?? [];
+        const arr = buckets.map((b) => b.doc_count);
         cloudData.push(arr);
         if (arr.length > maxLen) maxLen = arr.length;
         if (buckets.length > 0 && xLabels.length === 0) {
-          xLabels = buckets.map((b: any) => b.key_as_string.slice(11));
+          xLabels = buckets.map((b) => b.key_as_string.slice(11));
         }
       }
       const paddedCloudData = cloudData.map(arr =>
@@ -44,10 +46,10 @@ export default function CloudLogVolumeGraph() {
       );
       setLogData(paddedCloudData);
       setLabels(xLabels);
-    }; // ← 여기 반드시 닫혀야 함!
+    };
 
     fetchData();
-    timer = setInterval(fetchData, INTERVAL_MS);
+    const timer = setInterval(fetchData, INTERVAL_MS); // let → const
 
     return () => clearInterval(timer);
   }, []);
