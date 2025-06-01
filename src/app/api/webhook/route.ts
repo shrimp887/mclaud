@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export function GET() {
+export async function GET() {
   return new Response(JSON.stringify(cachedAlerts), {
     status: 200,
     headers: { "Content-Type": "application/json" },
