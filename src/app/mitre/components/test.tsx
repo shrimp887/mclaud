@@ -46,6 +46,9 @@ const cloudColors: Record<string, string> = {
 
 function parseTimeRange(range: string): number {
   switch (range) {
+	case "1h": return 60 * 60 *1000;
+	case "30m": return 30 * 60 * 1000;
+    case "10m": return 10 * 60 * 1000;
     case "5m": return 5 * 60 * 1000;
     case "3m": return 3 * 60 * 1000;
     case "1m":
@@ -134,7 +137,7 @@ export default function TestChart() {
       setData((prev) => {
         if (!initialized) {
           setInitialized(true);
-          return sorted.map((item, i) => ({ ...item, index: i }));
+          return sorted;
         }
 
         const unique = sorted.filter((item) => {
@@ -150,7 +153,7 @@ export default function TestChart() {
 
         const updated = [...prev, ...unique];
         const sliced = updated.slice(-MAX_LENGTH);
-        return sliced.map((item, i) => ({ ...item, index: i }));
+        return sliced;
       });
     } catch (e) {
       console.error("데이터 불러오기 실패:", e);
@@ -175,31 +178,64 @@ export default function TestChart() {
 
   return (
     <div className="bg-white p-6 rounded-xl shadow">
-      <h3 className="text-lg font-bold mb-2">클라우드 로그 실시간 그래프</h3>
+      <h3 className="text-lg font-bold mb-4">클라우드 로그 실시간 그래프</h3>
 
-      <div className="flex flex-col gap-1 mb-2">
-        {["aws", "azure", "gcp"].map((cloud) => {
-          const cloudAlerts = alerts.filter((a) => a.cloud === cloud).slice(-10);
-          const bgColor = cloud === "aws" ? "bg-blue-100 text-blue-800" :
-                          cloud === "azure" ? "bg-green-100 text-green-800" :
-                          "bg-orange-100 text-orange-800";
-          return (
-            <div key={cloud} className="flex gap-2 overflow-x-auto max-w-full">
-              {cloudAlerts.map((alert, idx) => (
+      {/* 전체 알림 리스트 */}
+      {selectedClouds.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto max-w-full mb-2">
+          {[...alerts]
+            .filter((a) => selectedClouds.includes(a.cloud))
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .map((alert, idx) => {
+              const bgColor =
+                alert.cloud === "aws"
+                  ? "bg-blue-100 text-blue-800"
+                  : alert.cloud === "azure"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-orange-100 text-orange-800";
+              return (
                 <div
-                  key={idx}
+                  key={`all-${idx}`}
                   className={`px-2 py-1 text-xs font-semibold rounded shadow-sm whitespace-nowrap ${bgColor}`}
                   title={`🕒 ${alert.timestamp}\n☁️ ${alert.cloud.toUpperCase()}`}
                 >
                   {alert.trigger}
                 </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+        </div>
+      )}
 
-      <div className="mb-4 flex gap-4 items-center">
+      {/* 클라우드별 최근 알림 */}
+      {["aws", "azure", "gcp"].map((cloud) => {
+        if (!selectedClouds.includes(cloud)) return null;
+        const cloudAlerts = alerts
+          .filter((a) => a.cloud === cloud)
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          .slice(-20);
+        const bgColor =
+          cloud === "aws"
+            ? "bg-blue-100 text-blue-800"
+            : cloud === "azure"
+            ? "bg-green-100 text-green-800"
+            : "bg-orange-100 text-orange-800";
+        return (
+          <div key={cloud} className="flex gap-2 overflow-x-auto max-w-full mb-1">
+            {cloudAlerts.map((alert, idx) => (
+              <div
+                key={`${cloud}-${idx}`}
+                className={`px-2 py-1 text-xs font-semibold rounded shadow-sm whitespace-nowrap ${bgColor}`}
+                title={`🕒 ${alert.timestamp}\n☁️ ${alert.cloud.toUpperCase()}`}
+              >
+                {alert.trigger}
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      {/* 시간 범위 및 필터 */}
+      <div className="mb-4 mt-4 flex gap-4 items-center">
         <label>시간 범위:</label>
         <select
           value={timeRange}
@@ -213,6 +249,9 @@ export default function TestChart() {
           <option value="1m">최근 1분</option>
           <option value="3m">최근 3분</option>
           <option value="5m">최근 5분</option>
+          <option value="10m">최근 10분</option>
+		  <option value="30m">최근 30분</option>
+		  <option value="1h">최근 1시간</option>
         </select>
 
         <div className="ml-6 flex gap-4">
@@ -229,13 +268,23 @@ export default function TestChart() {
         </div>
       </div>
 
+      {/* 그래프 */}
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
-            dataKey="index"
-            tick={false}
-            label={{ value: "← 시간 흐름", position: "insideBottomRight", offset: -10 }}
+            dataKey="timestamp"
+            tickFormatter={(tick, index) => {
+              if (index === 0) {
+                const local = new Date(new Date(tick).getTime() + (new Date().getTimezoneOffset() * -60000));
+                const now = new Date();
+                const diff = Math.floor((now.getTime() - local.getTime()) / 60000);
+                return `${diff}분 전`;
+              }
+              return "";
+            }}
+            interval="preserveStartEnd"
+            minTickGap={30}
           />
           <YAxis domain={[0, 80]} />
           <Tooltip
@@ -245,10 +294,7 @@ export default function TestChart() {
                           name === "AZURE" ? point.raw_azure : point.raw_gcp;
               return [`${raw}`, name];
             }}
-            labelFormatter={(idx) => {
-              const point = data.find((d) => d.index === idx);
-              return point ? point.timestamp : "";
-            }}
+            labelFormatter={(ts) => ts}
           />
           <Legend />
           {selectedClouds.map((cloud) => (
@@ -259,9 +305,8 @@ export default function TestChart() {
               stroke={cloudColors[cloud]}
               name={cloud.toUpperCase()}
               dot={<CustomDot dataKey={cloud} />}
-              isAnimationActive={true}
-              animationDuration={400}
               strokeWidth={2}
+              isAnimationActive={false}
             />
           ))}
         </LineChart>
