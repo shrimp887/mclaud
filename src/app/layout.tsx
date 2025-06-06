@@ -13,10 +13,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="flex h-screen bg-gray-100">
+      <body className="flex h-screen bg-[#fdf6e3] text-[#4b3621]">
         <Sidebar />
-        <main className="flex-1 p-10 overflow-y-auto">{children}</main>
+        <main className="flex-1 p-10 overflow-y-auto bg-[#fdf6e3]">{children}</main>
       </body>
     </html>
   );
 }
+
