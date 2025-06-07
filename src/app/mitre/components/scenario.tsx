@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
 import * as d3 from "d3";
@@ -11,155 +11,61 @@ export default function MitrePage() {
   const cyRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [cy, setCy] = useState<cytoscape.Core | null>(null);
+  const [visible, setVisible] = useState(false);
 
-  const path = useMemo(
-    () => [
-      "Initial Access",
-      "Execution",
-      "Discovery",
-      "Lateral Movement",
-      "Collection",
-    ],
-    []
-  );
+  const path = useMemo(() => ["Initial Access", "Execution", "Discovery", "Lateral Movement", "Collection"], []);
 
-  const allNodes = useMemo(
-    () =>
-      [
-        "Initial Access",
-        "Execution",
-        "Discovery",
-        "Persistence",
-        "Privilege Escalation",
-        "Defense Evasion",
-        "Lateral Movement",
-        "Credential Access",
-        "Impact",
-        "Collection",
-        "Exfiltration",
-      ].map((id) => ({ data: { id, status: "off" } })),
-    []
-  );
+  const allNodes = useMemo(() => [
+    "Initial Access", "Execution", "Discovery", "Persistence", "Privilege Escalation",
+    "Defense Evasion", "Lateral Movement", "Credential Access", "Impact", "Collection", "Exfiltration",
+  ].map((id) => ({ data: { id, status: "off" } })), []);
 
-  const allEdges = useMemo(
-    () =>
-      [
-        ["Initial Access", "Execution"],
-        ["Execution", "Discovery"],
-        ["Execution", "Persistence"],
-        ["Execution", "Privilege Escalation"],
-        ["Execution", "Defense Evasion"],
-        ["Discovery", "Lateral Movement"],
-        ["Discovery", "Persistence"],
-        ["Lateral Movement", "Collection"],
-        ["Collection", "Credential Access"],
-        ["Credential Access", "Exfiltration"],
-        ["Privilege Escalation", "Impact"],
-        ["Defense Evasion", "Privilege Escalation"],
-      ].map(([source, target]) => ({
-        data: { source, target, id: `${source}-${target}` },
-      })),
-    []
-  );
+  const allEdges = useMemo(() => [
+    ["Initial Access", "Execution"],
+    ["Execution", "Discovery"],
+    ["Execution", "Persistence"],
+    ["Execution", "Privilege Escalation"],
+    ["Execution", "Defense Evasion"],
+    ["Discovery", "Lateral Movement"],
+    ["Discovery", "Persistence"],
+    ["Lateral Movement", "Collection"],
+    ["Collection", "Credential Access"],
+    ["Credential Access", "Exfiltration"],
+    ["Privilege Escalation", "Impact"],
+    ["Defense Evasion", "Privilege Escalation"],
+  ].map(([source, target]) => ({ data: { source, target, id: `${source}-${target}` } })), []);
 
-  const styles = useMemo(
-    () => [
-      {
-        selector: "node",
-        style: {
-          label: "data(id)",
-          width: 160,
-          height: 80,
-          shape: "roundrectangle",
-          "text-valign": "center",
-          "text-halign": "center",
-          "font-size": 18,
-          "background-color": "#e0e0e0",
-          "border-width": 2,
-          "border-color": "#aaa",
-          color: "#333",
-          "text-wrap": "wrap",
-        },
-      },
-      {
-        selector: "edge",
-        style: { display: "none" },
-      },
-    ],
-    []
-  );
-
-  const nodeDetails: Record<
-    string,
+  const styles = useMemo(() => [
     {
-      tactic: string;
-      technique: string;
-      tool: string;
-      detectTime: string;
-      capec: string;
-    }
-  > = {
-    "Initial Access": {
-      tactic: "Initial Access",
-      technique: "T1190",
-      tool: "Web Exploit",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-137",
+      selector: "node",
+      style: {
+        label: "data(id)",
+        width: 160,
+        height: 80,
+        shape: "roundrectangle",
+        "text-valign": "center",
+        "text-halign": "center",
+        "font-size": 18,
+        "background-color": "#e0e0e0",
+        "border-width": 2,
+        "border-color": "#aaa",
+        color: "#333",
+        "text-wrap": "wrap",
+      },
     },
-    Execution: {
-      tactic: "Execution",
-      technique: "T1059",
-      tool: "Reverse Shell",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-111",
+    {
+      selector: "edge",
+      style: { display: "none" },
     },
-    Discovery: {
-      tactic: "Discovery",
-      technique: "T1082 - System Information Discovery",
-      tool: "Systeminfo",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-163",
-    },
-    "Lateral Movement": {
-      tactic: "Lateral Movement",
-      technique: "T1021",
-      tool: "SSH Client",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-550",
-    },
-    Collection: {
-      tactic: "Collection",
-      technique: "T1005",
-      tool: "Cloud CLI",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-118",
-    },
-    "Credential Access": {
-      tactic: "Credential Access",
-      technique: "T1552",
-      tool: "Credential Harvesting via Metadata API",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-640",
-    },
-    Exfiltration: {
-      tactic: "Exfiltration",
-      technique: "T1041",
-      tool: "Web Transfer",
-      detectTime: "202x-xx-xx xx:xx (UTC)",
-      capec: "CAPEC-157",
-    },
-
-    // ... 계속 추가 가능
-  };
+  ] as unknown as cytoscape.StylesheetCSS[], []);
 
   const toSafeId = (id: string) => id.replace(/\s+/g, "-");
 
-  const drawEdgesWithD3 = (cyInstance: cytoscape.Core) => {
+  const drawEdgesWithD3 = useCallback((cyInstance: cytoscape.Core) => {
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    svg
-      .append("defs")
+    svg.append("defs")
       .append("marker")
       .attr("id", "arrow")
       .attr("viewBox", "0 -5 10 10")
@@ -181,17 +87,9 @@ export default function MitrePage() {
       const tPos = t.renderedPosition();
       const path = d3.path();
       path.moveTo(sPos.x + s.renderedWidth() / 2, sPos.y);
-      path.bezierCurveTo(
-        (sPos.x + tPos.x) / 2 + 40,
-        sPos.y,
-        (sPos.x + tPos.x) / 2 - 40,
-        tPos.y,
-        tPos.x - t.renderedWidth() / 2,
-        tPos.y
-      );
+      path.bezierCurveTo((sPos.x + tPos.x) / 2 + 40, sPos.y, (sPos.x + tPos.x) / 2 - 40, tPos.y, tPos.x - t.renderedWidth() / 2, tPos.y);
 
-      svg
-        .append("path")
+      svg.append("path")
         .attr("id", `edge-${toSafeId(id)}`)
         .attr("stroke", "#999")
         .attr("stroke-width", 2)
@@ -199,24 +97,17 @@ export default function MitrePage() {
         .attr("marker-end", "url(#arrow)")
         .attr("d", path.toString());
     });
-  };
-
-  // Tooltip 상태
-  const [activeNode, setActiveNode] = useState<string | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  }, [allEdges]);
 
   useEffect(() => {
     if (cyRef.current && !cy) {
       const instance = cytoscape({
         container: cyRef.current,
         elements: [...allNodes, ...allEdges],
-        style: styles as unknown as cytoscape.StylesheetCSS[],
+        style: styles,
         layout: {
           name: "dagre",
-          // @ts-expect-error: rankDir is used by cytoscape-dagre plugin
+          // @ts-expect-error - cytoscape-dagre plugin uses non-standard rankDir
           rankDir: "LR",
           nodeSep: 100,
           rankSep: 120,
@@ -229,41 +120,8 @@ export default function MitrePage() {
 
       setCy(instance);
       instance.ready(() => drawEdgesWithD3(instance));
-
-      instance.on("tap", "node", (event) => {
-        const node = event.target;
-        const nodeId = node.id();
-        const pos = node.renderedPosition();
-
-        const container = cyRef.current;
-        if (!container) return;
-
-        const scrollLeft = container.scrollLeft;
-        const scrollTop = container.scrollTop;
-
-        // 상태 확인
-        if (node.data("status") !== "on") {
-          setActiveNode(null);
-          setTooltipPosition(null);
-          return;
-        }
-
-        if (activeNode === nodeId) {
-          setActiveNode(null);
-          setTooltipPosition(null);
-        } else {
-          setActiveNode(nodeId);
-
-          setTooltipPosition({
-            x: pos.x - scrollLeft,
-            y: pos.y - scrollTop + 70,
-          });
-        }
-      });
     }
   }, [cy, allEdges, allNodes, styles, drawEdgesWithD3]);
-
-  const [visible, setVisible] = useState(false);
 
   const handleStart = () => {
     if (!cy) return;
@@ -277,220 +135,60 @@ export default function MitrePage() {
 
       const current = cy.getElementById(path[step]);
       visited.add(current.id());
-
       current.data("status", "on");
-      current.animate(
-        { style: { "background-color": "#c8102e", color: "#fff" } },
-        { duration: 400 }
-      );
+      current.animate({ style: { "background-color": "#c8102e", color: "#fff" } }, { duration: 400 });
 
       current.outgoers("node").forEach((n) => {
         if (n.data("status") === "off") {
           n.data("status", "anticipated");
-          n.animate(
-            { style: { "background-color": "#40024D", color: "#fff" } },
-            { duration: 400 }
-          );
+          n.animate({ style: { "background-color": "#40024D", color: "#fff" } }, { duration: 400 });
         }
       });
-
-      if (step > 0) {
-        const prev = cy.getElementById(path[step - 1]);
-        prev.outgoers("node").forEach((n) => {
-          const isAnticipated = n.data("status") === "anticipated";
-          const isConnected = n.edgesWith(current).length > 0;
-          if (isAnticipated && !isConnected && !visited.has(n.id())) {
-            const successors = n.successors().filter((s) => s.isNode());
-            const connectedEdges = n.connectedEdges();
-
-            connectedEdges.forEach((e) => {
-              const safeId = toSafeId(e.id());
-              d3.select(`#edge-${safeId}`).remove();
-              cy.remove(e);
-            });
-
-            successors.forEach((child) => {
-              child.animate(
-                {
-                  position: {
-                    x: child.position("x") + (Math.random() * 100 - 50),
-                    y: child.position("y") + (Math.random() * 100 - 50),
-                  },
-                  style: { width: 1, height: 1, opacity: 0 },
-                },
-                {
-                  duration: 600,
-                  complete: () => {
-                    cy.remove(child);
-                  },
-                }
-              );
-            });
-
-            n.animate(
-              {
-                position: {
-                  x: n.position("x") + (Math.random() * 100 - 50),
-                  y: n.position("y") + (Math.random() * 100 - 50),
-                },
-                style: { width: 1, height: 1, opacity: 0 },
-              },
-              {
-                duration: 600,
-                complete: () => {
-                  cy.remove(n);
-                },
-              }
-            );
-          }
-        });
-
-        prev.outgoers("edge").forEach((e) => {
-          const target = e.target();
-          if (!visited.has(target.id()) && target.id() !== current.id()) {
-            const safeId = toSafeId(e.id());
-            d3.select(`#edge-${safeId}`).remove();
-            cy.remove(e);
-          }
-        });
-      }
-
       step++;
       setTimeout(proceed, 5000);
     };
-
     proceed();
   };
 
   return (
-    <div className="p-6 relative">
-      <button
-        onClick={handleStart}
-        className="mb-4 px-4 py-2 bg-red-600 text-white rounded"
-        style={{
-          opacity: 0,
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100px",
-          height: "40px",
-          zIndex: 10,
-        }}
-      >
-        시작
-      </button>
-
-      <div
-        className="absolute bottom-5.1 left-5.1 bg-white border text-sm"
-        style={{
-          borderRadius: 0,
-          padding: "6px 10px",
-          borderColor: "#888",
-          margin: 0,
-          boxShadow: "none",
-        }}
-      >
-        <div className="flex items-center mb-1">
-          <div
-            className="w-3 h-3 rounded-full mr-2"
-            style={{ backgroundColor: "#c8102e" }}
-          ></div>
-          Detected
-        </div>
-        <div className="flex items-center mb-1">
-          <div
-            className="w-3 h-3 rounded-full mr-2"
-            style={{ backgroundColor: "#40024D" }}
-          ></div>
-          Anticipated
-        </div>
-        <div className="flex items-center">
-          <div
-            className="w-3 h-3 rounded-full mr-2"
-            style={{ backgroundColor: "#ccc" }}
-          ></div>
-          Disregarded
-        </div>
-      </div>
-
-      {activeNode && tooltipPosition && nodeDetails[activeNode] && (
-        <div
-          className="absolute bg-white border border-gray-400 shadow-md p-3 text-sm"
-          style={{
-            left: tooltipPosition.x,
-            top: tooltipPosition.y,
-            transform: "translate(-50%, 10px)",
-            zIndex: 1000,
-            minWidth: "280px",
-            backgroundColor: "white",
-            borderColor: "#888",
-            borderWidth: "1px",
-            borderStyle: "solid",
-            borderRadius: "4px",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: "-7px",
-              left: "60%",
-              transform: "translateX(-50%)",
-              width: "14px",
-              height: "7px",
-              overflow: "hidden",
-            }}
+    <div className="w-full max-w-[1600px] mx-auto px-0">
+      <div className="bg-white rounded-xl shadow p-8 w-full">
+        <div className="relative w-full">
+          <button
+            onClick={handleStart}
+            className="absolute top-0 left-0 w-[100px] h-[40px] z-10 opacity-0"
           >
+            시작
+          </button>
+
+          <div className="absolute bottom-5.1 left-5.1 bg-white border text-sm rounded-none shadow-none p-[6px_10px] border-[#888]">
+            <div className="flex items-center mb-1">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: "#c8102e" }}></div>
+              Detected
+            </div>
+            <div className="flex items-center mb-1">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: "#40024D" }}></div>
+              Anticipated
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: "#ccc" }}></div>
+              Disregarded
+            </div>
+          </div>
+
+          <div className="relative w-full h-[700px] border border-gray-300 rounded-b-xl overflow-hidden">
+            <svg
+              ref={svgRef}
+              className={`absolute top-0 left-0 w-full h-full pointer-events-none transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}
+            />
             <div
-              style={{
-                width: "10px",
-                height: "10px",
-                backgroundColor: "white",
-                borderTop: "1px solid #888",
-                borderLeft: "1px solid #888",
-                borderRight: "1px solid #888",
-                transform: "rotate(45deg)",
-                position: "absolute",
-                top: "2px",
-                left: "2px",
-                backgroundClip: "padding-box",
-              }}
+              ref={cyRef}
+              className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ${visible ? "opacity-100" : "opacity-0"}`}
             />
           </div>
-
-          <div className="text-sm text-black">
-            <div>
-              <strong>Tactic</strong>: {nodeDetails[activeNode].tactic}
-            </div>
-            <div>
-              <strong>Technique</strong>: {nodeDetails[activeNode].technique}
-            </div>
-            <div>
-              <strong>Tool</strong>: {nodeDetails[activeNode].tool}
-            </div>
-            <div>
-              <strong>Detect Time</strong>: {nodeDetails[activeNode].detectTime}
-            </div>
-            <div>
-              <strong>MITRE CAPEC</strong>: {nodeDetails[activeNode].capec}
-            </div>
-          </div>
         </div>
-      )}
-
-      <div className="relative w-full h-[700px] border border-gray-300">
-        <svg
-          ref={svgRef}
-          className={`absolute top-0 left-0 w-full h-full pointer-events-none transition-opacity duration-700 ${
-            visible ? "opacity-100" : "opacity-0"
-          }`}
-        />
-        <div
-          ref={cyRef}
-          className={`absolute top-0 left-0 w-full h-full transition-opacity duration-700 ${
-            visible ? "opacity-100" : "opacity-0"
-          }`}
-        />
       </div>
     </div>
   );
-}
+} 
+

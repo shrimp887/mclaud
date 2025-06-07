@@ -7,12 +7,14 @@ export default async function Page() {
   const session = await getSession();
 
   if (!session?.isLoggedIn) {
-    redirect("/login"); // 로그인 안 되어 있으면 로그인 페이지로 이동
+    redirect("/login");
   }
 
   return (
     <div className="p-6 space-y-10">
-      <h2 className="text-2xl font-bold mb-4">MITRE ATT&CK 탐지 시나리오</h2>
+      <div className="bg-[#a58760] text-[#251b10] px-8 py-3 font-bold text-3xl shadow-md rounded-none w-full mb-4">
+        MITRE ATT&CK 탐지 시나리오
+      </div>
       <TestChart />
       <Scenario />
     </div>

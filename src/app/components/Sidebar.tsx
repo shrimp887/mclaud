@@ -37,11 +37,12 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-60 min-h-screen bg-[#f5e6ca] text-[#4b3621] flex flex-col items-center py-6 shadow-inner">
-      <h1 className="text-xl font-bold mb-10 tracking-widest">ATT-LAS</h1>
+    <aside className="w-60 min-h-screen bg-[#a58a67] text-[#251b10] flex flex-col items-center py-6 shadow-inner">
+      <h1 className="text-2xl font-extrabold mt-10 mb-10 py-6 tracking-widest transform scale-y-150">ATT-LAS</h1>
 
-      <div className="flex flex-col items-center mb-10">
-        <p className="mt-2 text-sm font-medium flex items-center gap-1 italic">
+      {/* 로그인 정보 박스 */}
+      <div className="bg-[#fdf4e0] rounded-md px-4 py-3 mb-8 w-52 text-center shadow">
+        <p className="text-sm font-medium flex items-center justify-center gap-1 italic">
           {email ? (
             <>
               <User size={16} className="text-[#4b3621]" />
@@ -53,7 +54,8 @@ export default function Sidebar() {
         </p>
       </div>
 
-      <nav className="flex flex-col gap-3 w-full px-6 text-sm">
+      {/* 네비게이션 메뉴 */}
+      <nav className="flex flex-col gap-3 w-full px-6 text-sm mt-12">
         {navItems.map(({ label, href }) => (
           <Link
             key={href}
@@ -61,8 +63,8 @@ export default function Sidebar() {
             className={`px-4 py-2 rounded-md transition font-medium
               ${
                 pathname === href
-                  ? "bg-[#e0c090] text-black"
-                  : "hover:bg-[#fdf6e3] hover:text-black"
+                  ? "bg-[#cfa76b] text-[#fdf4e0]"
+                  : "text-[#fdf4e0] hover:bg-[#fdf6e3] hover:text-[#fdf4e0]"
               }
             `}
           >
@@ -75,6 +77,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
+      {/* 로그인/로그아웃 버튼 */}
       <div className="mt-8">
         {email ? (
           <button
@@ -93,7 +96,8 @@ export default function Sidebar() {
         )}
       </div>
 
-      <div className="mt-auto text-xs text-center text-[#7a6651] px-4 pt-10 italic leading-tight">
+     
+      <div className="mt-auto mb-16 text-xs text-center text-[#7a6651] px-4 pt-4 italic leading-tight">
         ATT&CK-based<br />
         Multi-cloud Log Analytics<br />
         for Scenario Prediction Dashboard
