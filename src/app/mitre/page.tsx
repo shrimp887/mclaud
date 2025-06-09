@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import TestChart from "./components/test";
+import PredictionGraph from "./components/prediction";
 import Scenario from "./components/scenario";
 
 export default async function Page() {
@@ -16,6 +17,7 @@ export default async function Page() {
         MITRE ATT&CK 탐지 시나리오
       </div>
       <TestChart />
+      <PredictionGraph />
       <Scenario />
     </div>
   );

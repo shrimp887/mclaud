@@ -2,7 +2,7 @@ import "./globals.css";
 import Sidebar from "./components/Sidebar";
 
 export const metadata = {
-  title: "M-CLAUD",
+  title: "ATT-LAS",
   description: "MultiCloud Log Dashboard",
 };
 

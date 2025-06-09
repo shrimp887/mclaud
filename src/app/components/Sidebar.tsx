@@ -38,7 +38,13 @@ export default function Sidebar() {
 
   return (
     <aside className="w-60 min-h-screen bg-[#a58a67] text-[#251b10] flex flex-col items-center py-6 shadow-inner">
-      <h1 className="text-2xl font-extrabold mt-10 mb-10 py-6 tracking-widest transform scale-y-150">ATT-LAS</h1>
+      
+      {/* 이미지 로고 */}
+      <img
+        src="/images/ATTLAS-logo1.png"
+        alt="ATT-LAS Logo"
+        className="w-40 h-auto mt-10 mb-10"
+      />
 
       {/* 로그인 정보 박스 */}
       <div className="bg-[#fdf4e0] rounded-md px-4 py-3 mb-8 w-52 text-center shadow">
@@ -96,7 +102,7 @@ export default function Sidebar() {
         )}
       </div>
 
-     
+      {/* 설명 문구 */}
       <div className="mt-auto mb-16 text-xs text-center text-[#7a6651] px-4 pt-4 italic leading-tight">
         ATT&CK-based<br />
         Multi-cloud Log Analytics<br />
