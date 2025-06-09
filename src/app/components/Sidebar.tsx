@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useSessionStore } from "@/lib/sessionStore";
@@ -40,11 +41,15 @@ export default function Sidebar() {
     <aside className="w-60 min-h-screen bg-[#a58a67] text-[#251b10] flex flex-col items-center py-6 shadow-inner">
       
       {/* 이미지 로고 */}
-      <img
-        src="/images/ATTLAS-logo1.png"
-        alt="ATT-LAS Logo"
-        className="w-40 h-auto mt-10 mb-10"
-      />
+      <div className="relative w-40 h-16 mt-10 mb-10">
+        <Image
+          src="/images/ATTLAS-logo1.png"
+          alt="ATT-LAS Logo"
+          layout="fill"
+          objectFit="contain"
+          priority
+        />
+      </div>
 
       {/* 로그인 정보 박스 */}
       <div className="bg-[#fdf4e0] rounded-md px-4 py-3 mb-8 w-52 text-center shadow">
