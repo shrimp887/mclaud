@@ -1,5 +1,5 @@
 digraph AttackTree {
-    node [shape=box, style=filled, color=lightgray, fontname="DejaVu Sans", fontcolor="#fdf4e0", margin="0.4,0.3"];
+    node [shape=box, style=filled, color=lightgray, fontname="DejaVu Sans", fontcolor="#fdf4e0", margin="0.4,0.3", fontsize=50];
 
     // Edges
     "n0" -> "n1";

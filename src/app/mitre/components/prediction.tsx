@@ -41,6 +41,16 @@ export default function PredictionPage() {
                 );
             }
 
+            // ✅ 확대/축소 제한 조정
+            const zoom = d3.zoom<SVGSVGElement, unknown>()
+              .scaleExtent([0.1, 100]) // ⬅️ 최대 확대 100배까지 허용
+              .on("zoom", (event) => {
+                svg.select("g").attr("transform", event.transform);
+              });
+
+            (svg as unknown as d3.Selection<SVGSVGElement, unknown, null, undefined>).call(zoom);
+
+            // 노드 처리
             svg.selectAll("g.node").each(function () {
               const node = d3.select(this);
               const id = node.attr("id");
@@ -92,6 +102,7 @@ export default function PredictionPage() {
               }
             });
 
+            // 엣지 맵 구성
             svg.selectAll("g.edge").each(function () {
               const edge = d3.select(this);
               const titles = edge.select("title").text().split("->").map((s) => s.trim());
@@ -104,6 +115,7 @@ export default function PredictionPage() {
               }
             });
 
+            // 초기 강조
             currentActiveNodesRef.current.forEach((id) => {
               const node = svg.select(`#${id}`);
               node.attr("opacity", 1);
@@ -158,18 +170,9 @@ export default function PredictionPage() {
             const viewportWidth = vb.width || 800;
             const viewportHeight = vb.height || 600;
 
-            const scale = 3.5;
+            const scale = 15;
             const translateX = viewportWidth / 2 - centerX * scale;
             const translateY = viewportHeight / 2 - centerY * scale;
-
-            console.log("📦 확대 이동 정보:", {
-              centerX,
-              centerY,
-              viewportWidth,
-              viewportHeight,
-              translateX,
-              translateY,
-            });
 
             zoomGroup
               .transition()
