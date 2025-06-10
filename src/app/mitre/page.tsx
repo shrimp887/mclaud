@@ -2,7 +2,6 @@ import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import TestChart from "./components/test";
 import PredictionSection from "./components/PredictionSection";
-import Scenario from "./components/scenario";
 
 export default async function Page() {
   const session = await getSession();
@@ -15,7 +14,6 @@ export default async function Page() {
       </div>
       <TestChart />
       <PredictionSection />
-      <Scenario />
     </div>
   );
 }

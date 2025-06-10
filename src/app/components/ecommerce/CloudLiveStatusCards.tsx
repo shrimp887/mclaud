@@ -18,7 +18,7 @@ export default function CloudLiveStatusCards({ cloudKeys }: Props) {
       {cloudKeys.map((cloud) => (
         <div
           key={cloud}
-          className="flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow h-28"
+          className="flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow h-32"
         >
           <Image
             src={cloudMeta[cloud].logo}
@@ -37,4 +37,5 @@ export default function CloudLiveStatusCards({ cloudKeys }: Props) {
     </div>
   );
 }
+
 

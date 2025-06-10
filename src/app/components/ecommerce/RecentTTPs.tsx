@@ -1,25 +1,18 @@
 "use client";
-import React, { useMemo } from "react";
+import React from "react";
 import Image from "next/image";
+import { AttackPoint } from "./AttackGlobe"; // AttackGlobe에서 export한 타입
 
-interface AlertItem {
-  cloud: "AWS" | "Azure" | "GCP";
-  tid: string;
-  detectedAt: Date;
-}
-
-const cloudLogo: Record<AlertItem["cloud"], string> = {
+const cloudLogo: Record<string, string> = {
   AWS: "/images/aws-icon.png",
   Azure: "/images/azure-icon.png",
   GCP: "/images/gcp-icon.png",
 };
 
-const sampleTIDs = [
-  "T1059", "T1078.001", "T1003", "T1110", "T1566.002",
-  "T1021.004", "T1203", "T1047", "T1087.001", "T1053"
-];
-
-function timeAgo(date: Date): string {
+function timeAgo(dateString: string): string {
+  // dateString = pt.detectedAt (예: '2025. 6. 10. 오후 12:41:22')
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "";
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   if (seconds < 30) return "방금 전";
   if (seconds < 60) return `${seconds}초 전`;
@@ -27,40 +20,32 @@ function timeAgo(date: Date): string {
   return `${minutes}분 전`;
 }
 
-export default function RecentTTPs() {
-  const alerts: AlertItem[] = useMemo(() => {
-    const clouds: AlertItem["cloud"][] = ["AWS", "Azure", "GCP"];
-
-    const generated = Array.from({ length: 5 }).map(() => {
-      const offset = Math.floor(Math.random() * 300); // 0~5분 전
-      return {
-        cloud: clouds[Math.floor(Math.random() * clouds.length)],
-        tid: sampleTIDs[Math.floor(Math.random() * sampleTIDs.length)],
-        detectedAt: new Date(Date.now() - offset * 1000),
-      };
-    });
-
-    // ✅ 최신 순 정렬 (가장 최근 항목이 위로)
-    return generated.sort((a, b) => b.detectedAt.getTime() - a.detectedAt.getTime());
-  }, []);
-
+export default function RecentTTPs({ latestTTPs }: { latestTTPs: AttackPoint[] }) {
   return (
-    <div className="bg-white rounded-lg shadow p-6 h-48 flex flex-col justify-between">
-      <div className="font-bold text-lg mb-3">최근 탐지된 TTP</div>
-      <ul className="text-base space-y-3 overflow-y-auto max-h-32 pr-1">
-        {alerts.map((alert, i) => (
+    <div className="bg-white rounded-lg px-6 h-48 flex flex-col justify-between">
+      <div className="font-bold text-lg py-3">최근 탐지된 TTP</div>
+      <ul className="rounded-lg px-5 py-2 text-base space-y-3 overflow-y-auto max-h-32 mb-4"
+       style={{
+            boxShadow: "inset 0 0 6px 1px rgba(106, 104, 104, 0.22)"
+        }}
+      >
+        {latestTTPs.length === 0 && (
+          <li className="text-gray-400">탐지 내역 없음</li>
+        )}
+        {latestTTPs.map((pt, i) => (
           <li key={i} className="flex items-center">
             <Image
-              src={cloudLogo[alert.cloud]}
-              alt={alert.cloud}
+              src={cloudLogo[pt.cloud] || "/images/aws-icon.png"}
+              alt={pt.cloud}
               width={24}
               height={24}
               className="mr-3"
             />
-            <span className="font-bold">{alert.tid}</span>
+            <span className="font-bold">{pt.ttp.split(":")[0]}</span>
             <span className="ml-3 text-sm text-gray-600">
-              {alert.cloud} / {timeAgo(alert.detectedAt)}
+              {pt.cloud} / {timeAgo(pt.detectedAt)}
             </span>
+            <span className="ml-3 text-xs text-gray-400">{pt.ip}</span>
           </li>
         ))}
       </ul>

@@ -26,9 +26,21 @@ export default function PredictionPage() {
           .zoom(true)
           .renderDot(dot)
           .on("end", () => {
-            const svg = d3.select(containerRef.current);
+            const svg = d3.select(containerRef.current).select("svg");
+            const svgNode = svg.node() as SVGSVGElement | null;
 
-            // Score에 따라 회색 진하기 적용
+            if (svgNode) {
+              const bbox = svgNode.getBBox();
+              svg
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .attr("preserveAspectRatio", "xMidYMid meet")
+                .attr(
+                  "viewBox",
+                  `${bbox.x - 50} ${bbox.y - 50} ${bbox.width + 100} ${bbox.height + 100}`
+                );
+            }
+
             svg.selectAll("g.node").each(function () {
               const node = d3.select(this);
               const id = node.attr("id");
@@ -45,33 +57,27 @@ export default function PredictionPage() {
                 }
               });
 
-              // 진하기 계산: score가 높을수록 진한 색
               if (score !== null && id) {
                 const gamma = 2.2;
-		const maxScore = 0.09;
-		const normalized = Math.min(score / maxScore, 1);
-		const adjusted = Math.pow(normalized, gamma);
-		const multiplier = 1 - adjusted;
+                const maxScore = 0.09;
+                const normalized = Math.min(score / maxScore, 1);
+                const adjusted = Math.pow(normalized, gamma);
+                const multiplier = 1 - adjusted;
+                const brightnessBoost = (1 - normalized) * 0.2;
+                const boostedMultiplier = Math.min(multiplier + brightnessBoost, 1);
 
-		const brightnessBoost = (1 - normalized) * 0.2; // 최대 +0.2까지
-		const boostedMultiplier = Math.min(multiplier + brightnessBoost, 1);
+                const baseR = 160;
+                const baseG = 120;
+                const baseB = 255;
 
-		const baseR = 160;
-		const baseG = 120;
-		const baseB = 255;
+                const r = Math.floor(baseR * boostedMultiplier);
+                const g = Math.floor(baseG * boostedMultiplier);
+                const b = Math.floor(baseB * boostedMultiplier);
+                const purple = `rgb(${r}, ${g}, ${b})`;
 
-		const r = Math.floor(baseR * boostedMultiplier);
-		const g = Math.floor(baseG * boostedMultiplier);
-		const b = Math.floor(baseB * boostedMultiplier);
-
-		const purple = `rgb(${r}, ${g}, ${b})`;
-
-                node.selectAll("polygon")
-                  .attr("fill", purple)
-                  .style("fill", purple);
+                node.selectAll("polygon").attr("fill", purple).style("fill", purple);
               }
 
-              // Score 텍스트 숨기기
               texts.each(function () {
                 const textEl = d3.select(this);
                 if (textEl.text().includes("Score:")) {
@@ -79,7 +85,6 @@ export default function PredictionPage() {
                 }
               });
 
-              // TID 매핑
               const tidText = node.select("text").text();
               const tid = tidText.split("\n")[0].trim();
               if (id && tid.startsWith("T")) {
@@ -87,7 +92,6 @@ export default function PredictionPage() {
               }
             });
 
-            // 엣지 정보 추출
             svg.selectAll("g.edge").each(function () {
               const edge = d3.select(this);
               const titles = edge.select("title").text().split("->").map((s) => s.trim());
@@ -100,13 +104,10 @@ export default function PredictionPage() {
               }
             });
 
-            // 초기 탐지 노드 강조 (빨간색)
             currentActiveNodesRef.current.forEach((id) => {
               const node = svg.select(`#${id}`);
               node.attr("opacity", 1);
-              node.selectAll("polygon")
-                .attr("fill", "red")
-                .style("fill", "red");
+              node.selectAll("polygon").attr("fill", "red").style("fill", "red");
             });
 
             console.log("✅ 초기 노드 강조 완료");
@@ -123,7 +124,9 @@ export default function PredictionPage() {
         const res = await fetch("/api/prediction");
         const data: { TID: string }[] = await res.json();
 
-        const seenTIDs = new Set(currentActiveNodesRef.current.map((nid) => nodeTIDMap.current[nid]));
+        const seenTIDs = new Set(
+          currentActiveNodesRef.current.map((nid) => nodeTIDMap.current[nid])
+        );
         const newTID = data.map((e) => e.TID).reverse().find((tid) => !seenTIDs.has(tid));
         if (!newTID) return;
 
@@ -134,13 +137,45 @@ export default function PredictionPage() {
         const match = children.find((child) => nodeTIDMap.current[child] === newTID);
         if (match && !currentActiveNodesRef.current.includes(match)) {
           currentActiveNodesRef.current.push(match);
-          const node = d3.select(containerRef.current).select(`#${match}`);
+
+          const svg = d3.select(containerRef.current).select("svg");
+          const node = svg.select(`#${match}`);
           node.attr("opacity", 1);
-          node.selectAll("polygon")
-            .attr("fill", "red")
-            .style("fill", "red");
+          node.selectAll("polygon").attr("fill", "red").style("fill", "red");
 
           console.log(`🔴 새로운 탐지: ${newTID} → 노드 ${match} 강조`);
+
+          const zoomGroup = svg.select("g");
+          const svgNode = svg.node() as SVGSVGElement | null;
+          const matchedNode = node.node() as SVGGElement | null;
+
+          if (svgNode && matchedNode) {
+            const nodeBox = matchedNode.getBBox();
+            const centerX = nodeBox.x + nodeBox.width / 2;
+            const centerY = nodeBox.y + nodeBox.height / 2;
+
+            const vb = svgNode.viewBox.baseVal;
+            const viewportWidth = vb.width || 800;
+            const viewportHeight = vb.height || 600;
+
+            const scale = 3.5;
+            const translateX = viewportWidth / 2 - centerX * scale;
+            const translateY = viewportHeight / 2 - centerY * scale;
+
+            console.log("📦 확대 이동 정보:", {
+              centerX,
+              centerY,
+              viewportWidth,
+              viewportHeight,
+              translateX,
+              translateY,
+            });
+
+            zoomGroup
+              .transition()
+              .duration(750)
+              .attr("transform", `translate(${translateX}, ${translateY}) scale(${scale})`);
+          }
         }
       } catch (e) {
         console.error("❌ TID fetch 실패", e);
@@ -155,7 +190,7 @@ export default function PredictionPage() {
       style={{
         width: "100%",
         maxWidth: "100%",
-        height: "700px",
+        height: "900px",
         overflow: "auto",
         backgroundColor: "#fff",
         border: "2px solid #aaa",
@@ -167,9 +202,11 @@ export default function PredictionPage() {
       <div
         ref={containerRef}
         style={{
-          width: "1000px",
-          transform: "scale(0.6)",
-          transformOrigin: "top left",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       />
     </div>

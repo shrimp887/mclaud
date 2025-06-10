@@ -24,7 +24,7 @@ export default function PredictionSection() {
 
         setAlerts(uniqueTIDs);
 
-        if (uniqueTIDs.length >= 6 && !showGraph) {
+        if (uniqueTIDs.length >= 3 && !showGraph) {
           setTimeout(() => {
             setShowGraph(true);
           }, 2000); // 2초 대기 후 그래프 표시
@@ -42,7 +42,7 @@ export default function PredictionSection() {
       {!showGraph && (
         <>
           <div className="flex flex-wrap gap-3 justify-center">
-            {alerts.slice(0, 6).map((alert, idx) => (
+            {alerts.slice(0, 3).map((alert, idx) => (
               <div
                 key={idx}
                 className="bg-red-600 text-white px-4 py-2 rounded shadow text-sm font-mono"
@@ -52,7 +52,7 @@ export default function PredictionSection() {
             ))}
           </div>
 
-          {alerts.length >= 6 && (
+          {alerts.length >= 3 && (
             <div className="flex flex-col items-center mt-4 space-y-2">
               <div className="text-lg font-semibold text-gray-800">Predicting...</div>
               <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-red-500 border-gray-300" />
