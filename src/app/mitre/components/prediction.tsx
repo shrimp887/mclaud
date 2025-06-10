@@ -7,17 +7,14 @@ import { graphviz } from "d3-graphviz";
 export default function PredictionPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const currentActiveNodesRef = useRef<string[]>([
-    "n0", "n1", "n2", "n3", "n4", "n5"
-  ]);
-
+  const currentActiveNodesRef = useRef<string[]>(["n0", "n1", "n2"]);
   const nodeTIDMap = useRef<Record<string, string>>({});
   const graphEdges = useRef<Record<string, string[]>>({});
 
   useEffect(() => {
     const renderGraph = async () => {
       try {
-        const dot = await fetch("/graphviz/test.dot").then((res) => {
+        const dot = await fetch("/graphviz/prediction_tree.dot").then((res) => {
           if (!res.ok) throw new Error("DOT 파일 로드 실패");
           return res.text();
         });
@@ -31,18 +28,66 @@ export default function PredictionPage() {
           .on("end", () => {
             const svg = d3.select(containerRef.current);
 
-            // 노드 → TID 매핑
+            // Score에 따라 회색 진하기 적용
             svg.selectAll("g.node").each(function () {
               const node = d3.select(this);
               const id = node.attr("id");
-              const text = node.select("text").text();
-              const tid = text.split("\n")[0].trim();
+              const texts = node.selectAll("text");
+
+              let score: number | null = null;
+
+              texts.each(function () {
+                const textEl = d3.select(this);
+                const content = textEl.text();
+                const match = content.match(/Score[:=]?\s?([\d.]+)/i);
+                if (match) {
+                  score = parseFloat(match[1]);
+                }
+              });
+
+              // 진하기 계산: score가 높을수록 진한 색
+              if (score !== null && id) {
+                const gamma = 2.2;
+		const maxScore = 0.09;
+		const normalized = Math.min(score / maxScore, 1);
+		const adjusted = Math.pow(normalized, gamma);
+		const multiplier = 1 - adjusted;
+
+		const brightnessBoost = (1 - normalized) * 0.2; // 최대 +0.2까지
+		const boostedMultiplier = Math.min(multiplier + brightnessBoost, 1);
+
+		const baseR = 160;
+		const baseG = 120;
+		const baseB = 255;
+
+		const r = Math.floor(baseR * boostedMultiplier);
+		const g = Math.floor(baseG * boostedMultiplier);
+		const b = Math.floor(baseB * boostedMultiplier);
+
+		const purple = `rgb(${r}, ${g}, ${b})`;
+
+                node.selectAll("polygon")
+                  .attr("fill", purple)
+                  .style("fill", purple);
+              }
+
+              // Score 텍스트 숨기기
+              texts.each(function () {
+                const textEl = d3.select(this);
+                if (textEl.text().includes("Score:")) {
+                  textEl.style("display", "none");
+                }
+              });
+
+              // TID 매핑
+              const tidText = node.select("text").text();
+              const tid = tidText.split("\n")[0].trim();
               if (id && tid.startsWith("T")) {
                 nodeTIDMap.current[id] = tid;
               }
             });
 
-            // 엣지 → 연결 관계 추출
+            // 엣지 정보 추출
             svg.selectAll("g.edge").each(function () {
               const edge = d3.select(this);
               const titles = edge.select("title").text().split("->").map((s) => s.trim());
@@ -55,13 +100,13 @@ export default function PredictionPage() {
               }
             });
 
-            // 초기 강조 노드 빨간색
+            // 초기 탐지 노드 강조 (빨간색)
             currentActiveNodesRef.current.forEach((id) => {
               const node = svg.select(`#${id}`);
               node.attr("opacity", 1);
               node.selectAll("polygon")
                 .attr("fill", "red")
-                .style("fill", "red"); // 강제 오버라이드
+                .style("fill", "red");
             });
 
             console.log("✅ 초기 노드 강조 완료");
@@ -78,14 +123,8 @@ export default function PredictionPage() {
         const res = await fetch("/api/prediction");
         const data: { TID: string }[] = await res.json();
 
-        const seenTIDs = new Set(
-          currentActiveNodesRef.current.map((nid) => nodeTIDMap.current[nid])
-        );
-        const newTID = data
-          .map((e) => e.TID)
-          .reverse()
-          .find((tid) => !seenTIDs.has(tid));
-
+        const seenTIDs = new Set(currentActiveNodesRef.current.map((nid) => nodeTIDMap.current[nid]));
+        const newTID = data.map((e) => e.TID).reverse().find((tid) => !seenTIDs.has(tid));
         if (!newTID) return;
 
         const lastNode = currentActiveNodesRef.current.at(-1);
@@ -95,7 +134,6 @@ export default function PredictionPage() {
         const match = children.find((child) => nodeTIDMap.current[child] === newTID);
         if (match && !currentActiveNodesRef.current.includes(match)) {
           currentActiveNodesRef.current.push(match);
-
           const node = d3.select(containerRef.current).select(`#${match}`);
           node.attr("opacity", 1);
           node.selectAll("polygon")

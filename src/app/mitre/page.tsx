@@ -1,15 +1,12 @@
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import TestChart from "./components/test";
-import PredictionWrapper from "./components/PredictionWrapper";
+import PredictionSection from "./components/PredictionSection";
 import Scenario from "./components/scenario";
 
 export default async function Page() {
   const session = await getSession();
-
-  if (!session?.isLoggedIn) {
-    redirect("/login");
-  }
+  if (!session?.isLoggedIn) redirect("/login");
 
   return (
     <div className="p-6 space-y-10">
@@ -17,8 +14,9 @@ export default async function Page() {
         MITRE ATT&CK 탐지 시나리오
       </div>
       <TestChart />
-      <PredictionWrapper />
+      <PredictionSection />
       <Scenario />
     </div>
   );
 }
+
