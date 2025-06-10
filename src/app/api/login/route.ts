@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
 
   if (isLocked(email)) {
     return NextResponse.json(
-      { error: "10분 잠김" },
+      { error: "Locked for 10 minutes" },
       { status: 429 }
     );
   }
@@ -15,14 +15,19 @@ export async function POST(req: NextRequest) {
   const isValid = email === "Sejong@example.com" && password === "Sejong123##";
 
   const lockMessage = recordLoginAttempt(email, isValid);
-  if (!isValid) {
-    return NextResponse.json({ error: lockMessage || "이메일 또는 비밀번호가 잘못되었습니다." }, { status: 401 });
+
+  if (!isValid || lockMessage) {
+    return NextResponse.json(
+      { error: lockMessage || "Invalid Credentials" },
+      { status: lockMessage ? 429 : 401 }
+    );
   }
 
+  // 로그인 성공 시 세션 저장
   const session = await getSession();
   session.email = email;
   session.isLoggedIn = true;
-  session.lastActivity = Date.now(); // 활동 기록
+  session.lastActivity = Date.now();
   await session.save();
 
   return NextResponse.json({ ok: true, email });
