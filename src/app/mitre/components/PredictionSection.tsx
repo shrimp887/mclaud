@@ -27,7 +27,7 @@ export default function PredictionSection() {
         if (uniqueTIDs.length >= 3 && !showGraph) {
           setTimeout(() => {
             setShowGraph(true);
-          }, 2000); // 2초 대기 후 그래프 표시
+          }, 7000); // 2초 대기 후 그래프 표시
         }
       } catch (e) {
         console.error("TID fetch 실패", e);

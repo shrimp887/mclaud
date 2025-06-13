@@ -46,8 +46,8 @@ const cloudColors: Record<string, string> = {
 
 function parseTimeRange(range: string): number {
   switch (range) {
-	case "1h": return 60 * 60 *1000;
-	case "30m": return 30 * 60 * 1000;
+        case "1h": return 60 * 60 *1000;
+        case "30m": return 30 * 60 * 1000;
     case "10m": return 10 * 60 * 1000;
     case "5m": return 5 * 60 * 1000;
     case "3m": return 3 * 60 * 1000;
@@ -250,8 +250,8 @@ export default function TestChart() {
           <option value="3m">최근 3분</option>
           <option value="5m">최근 5분</option>
           <option value="10m">최근 10분</option>
-		  <option value="30m">최근 30분</option>
-		  <option value="1h">최근 1시간</option>
+                  <option value="30m">최근 30분</option>
+                  <option value="1h">최근 1시간</option>
         </select>
 
         <div className="ml-6 flex gap-4">
@@ -272,20 +272,26 @@ export default function TestChart() {
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={data} margin={{ top: 30, right: 30, left: 20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="timestamp"
-            tickFormatter={(tick, index) => {
-              if (index === 0) {
-                const local = new Date(new Date(tick).getTime() + (new Date().getTimezoneOffset() * -60000));
-                const now = new Date();
-                const diff = Math.floor((now.getTime() - local.getTime()) / 60000);
-                return `${diff}분 전`;
-              }
-              return "";
-            }}
-            interval="preserveStartEnd"
-            minTickGap={30}
-          />
+		  <XAxis
+			dataKey="timestamp"
+			tickFormatter={(tick, index) => {
+			  if (index === 0) {
+				const labelMap: Record<string, string> = {
+				  "1m": "1분 전",
+				  "3m": "3분 전",
+				  "5m": "5분 전",
+				  "10m": "10분 전",
+				  "30m": "30분 전",
+				  "1h": "1시간 전",
+				};
+				return labelMap[timeRange] || "";
+			  }
+			  return "";
+			}}
+			interval="preserveStartEnd"
+			minTickGap={30}
+		  />
+
           <YAxis domain={[0, 80]} />
           <Tooltip
             formatter={(_, name, props) => {
@@ -314,4 +320,3 @@ export default function TestChart() {
     </div>
   );
 }
-
